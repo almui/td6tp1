@@ -73,7 +73,7 @@ datos$sleep_hours<- round(datos$sleep_hours, digits = 1)
 datos$screen_time_before_sleep<- round(datos$screen_time_before_sleep, digits = 1)
 datos$weekly_offline_hours<- round(datos$weekly_offline_hours, digits = 1)
 # Agregamos una nueva columna que diga si fue productivo o no, es productivo si la productividad actual es mayor a 5
-datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.5, false, true))
+datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.0, FALSE, TRUE))
 
 str(datos)
 
@@ -112,8 +112,6 @@ hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
 
 
 plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="productividad real",xlab="horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
-
-
 plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="productividad real", xlab="horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
 plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad real", xlab="productividad real",main="", xlim=c(3, 10), ylim=c(0, 11))
 
@@ -164,7 +162,7 @@ train
 ## Entrenar el modelo
 ```{r}
 library(rpart)
-
+#prueba
 
 tree <- rpart(
   formula = es_productivo ~ age + gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + perceived_productivity_score + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
