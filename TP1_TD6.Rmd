@@ -198,5 +198,20 @@ predictions_class <- predict(tree, newdata = test, type="class")
 
 predictions_prob
 ```
+```{r}
+# Matriz de confusión
+table(
+  Predicho = predictions_class,
+  Real = test$es_productivo
+)
 
+# Accuracy
+library(MLmetrics)
+
+Accuracy(y_pred = predictions_class, y_true = test$es_productivo)
+F1_Score(y_true=test$es_productivo, y_pred = predictions_class, positive = NULL)
+Precision(y_true=test$es_productivo, y_pred = predictions_class, positive = NULL)
+Recall(y_true=test$es_productivo, y_pred = predictions_class, positive = NULL)
+AUC(y_pred=predictions_class, y_true=test$es_productivo)
+```
 
