@@ -199,12 +199,7 @@ predictions_class <- predict(tree, newdata = test, type="class")
 predictions_prob
 ```
 ```{r}
-# Matriz de confusión
-table(
-  Predicho = predictions_class,
-  Real = test$es_productivo
-)
-
+ConfusionMatrix(y_pred = predictions_class, y_true = test$es_productivo)
 # Accuracy
 library(MLmetrics)
 
