@@ -21,17 +21,6 @@ En el caso del actual_productivity_score si deben eliminarse las filas con el da
 Redondeamos los parametros de actual y perceived productibity para que podemos transformarlo en parametros categoricos. Ademas agregamos una nueva columna para ver más facilmente quien es productivo y quien no. 
 
 ```{r}
-                                            
-datos$daily_social_media_time[is.na(datos$daily_social_media_time)] <- mean(datos$daily_social_media_time, na.rm = TRUE)
-
-
-datos$perceived_productivity_score[is.na(datos$perceived_productivity_score)] <- mean(datos$perceived_productivity_score, na.rm = TRUE)
-
-datos$actual_productivity_score[is.na(datos$actual_productivity_score)] <- mean(datos$actual_productivity_score, na.rm = TRUE)
-datos$stress_level[is.na(datos$stress_level)] <- mean(datos$stress_level, na.rm = TRUE)
-
-```
-```{r}
 library(dplyr)
 
 sacar_na <- function(df) {
@@ -73,7 +62,7 @@ datos$sleep_hours<- round(datos$sleep_hours, digits = 1)
 datos$screen_time_before_sleep<- round(datos$screen_time_before_sleep, digits = 1)
 datos$weekly_offline_hours<- round(datos$weekly_offline_hours, digits = 1)
 # Agregamos una nueva columna que diga si fue productivo o no, es productivo si la productividad actual es mayor a 5
-datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.0, FALSE, TRUE))
+datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.0, "SI", "NO"))
 
 str(datos)
 
@@ -110,7 +99,7 @@ hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
 ```
 ```{r}
 
-
+plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="productividad real",xlab="productividad persivida",main="", xlim=c(0, 9), ylim=c(0, 11))
 plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="productividad real",xlab="horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
 plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="productividad real", xlab="horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
 plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad real", xlab="productividad real",main="", xlim=c(3, 10), ylim=c(0, 11))
@@ -121,6 +110,10 @@ plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad rea
 ## Dividir el data set
 ```{r}
 set.seed(22)  # Semilla para que siempre salga igual si volvés a correrlo
+
+datos <- datos %>% select(-actual_productivity_score)
+datos <- datos %>% select(-perceived_productivity_score)
+
 
 n <- nrow(datos)
 
@@ -141,6 +134,8 @@ test_indices  <- indices[(n_train + n_valid + 1):n]
 train <- datos[train_indices, ]
 valid <- datos[valid_indices, ]
 test  <- datos[test_indices, ]
+
+
 ```
 ```{r}
 train
@@ -152,6 +147,11 @@ train$gender  <- as.factor(train$gender)
 train$job_type <- as.factor(train$job_type)
 train$social_platform_preference <- as.factor(train$social_platform_preference)
 train$uses_focus_apps <- as.factor(train$uses_focus_apps)
+# Convertir a factor
+train$es_productivo <- factor(train$es_productivo)
+test$es_productivo  <- factor(test$es_productivo)
+
+
 
 ```
 
@@ -165,7 +165,7 @@ library(rpart)
 #prueba
 
 tree <- rpart(
-  formula = es_productivo ~ age + gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + perceived_productivity_score + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
+  formula =  es_productivo ~ age + gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
   data = train,
   method = "class"
 )
@@ -197,16 +197,86 @@ predictions_class <- predict(tree, newdata = test, type="class")
 ```{r}
 
 predictions_prob
+colnames(predictions_prob)
+# probablemente sea "Sí" y "No", no "SI"
+
 ```
 ```{r}
-ConfusionMatrix(y_pred = predictions_class, y_true = test$es_productivo)
+
 # Accuracy
 library(MLmetrics)
 
 Accuracy(y_pred = predictions_class, y_true = test$es_productivo)
-F1_Score(y_true=test$es_productivo, y_pred = predictions_class, positive = NULL)
-Precision(y_true=test$es_productivo, y_pred = predictions_class, positive = NULL)
-Recall(y_true=test$es_productivo, y_pred = predictions_class, positive = NULL)
-AUC(y_pred=predictions_class, y_true=test$es_productivo)
+
+ConfusionMatrix(y_pred = predictions_class, y_true = test$es_productivo)
+
+
+
+F1_Score(y_true=test$es_productivo, y_pred = predictions_class, positive = "SI")
+Precision(y_true=test$es_productivo, y_pred = predictions_class, positive ="SI" )
+Recall(y_true=test$es_productivo, y_pred = predictions_class, positive = "SI")
+AUC(y_pred = predictions_prob[, "SI"],y_true = ifelse(test$es_productivo == "SI", 1, 0))
+```
+```{r}
+library(caret)
+
+
+
+ctrl <- trainControl(
+  method = "cv",
+  number = 5,
+  classProbs = TRUE,               # necesario para calcular probabilidades
+  summaryFunction = twoClassSummary, # ROC/AUC
+  savePredictions = "final"
+)
+
+grid <- expand.grid(maxdepth = 1:10)  # grid exhaustivo de maxdepth va a probar valores desde el 1 al 10
+
+
+
+
+
+
 ```
 
+```{r}
+minsplit_vals <- c(2, 5)
+minbucket_vals <- c(1, 3)
+
+
+optimizar_hp <-function(train,ctrl,grid, minsplit_vals, minbucket_vals){
+  best <- data.frame(minsplit = 0,minbucket = 0,maxdepth = 0)
+  best_ROC <- 0
+  best_tree <- 0
+  for(ms in minsplit_vals){
+    for(mb in minbucket_vals){
+      #temp para elegir el mejor maxdepth
+      
+      tree_temp <- train(
+        es_productivo ~ .,
+        data = train,
+        method = "rpart2",
+        trControl = ctrl,
+        metric = "ROC",
+        tuneGrid = grid,
+        control = rpart.control(cp = 0, xval = 0, minsplit = ms, minbucket = mb)
+      )
+      
+      
+      temp_ROC <-  tree_temp$results$ROC[which.max(tree_temp$results$ROC)]
+      if(best_ROC > temp_ROC){
+        best_tree <-tree_temp
+        best_ROC <-tree_temp$results$ROC
+        best <- data.frame(minsplit = ms,minbucket = mb,maxdepth = tree_temp$bestTune$maxdepth)
+      }
+    }
+  }
+  return(best)
+}
+
+
+```
+
+```{r}
+optimizar_hp(train,ctrl,grid, minsplit_vals, minbucket_vals)
+```
