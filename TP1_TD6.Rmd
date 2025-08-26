@@ -1,0 +1,204 @@
+---
+title: "TP TD6"
+output:
+  html_document:
+    df_print: paged
+---
+
+## **subir el dataset**
+
+```{r }
+datos <- read.csv("social_media_vs_productivity.csv")
+```
+Veamos si la base de datos contiene valores `NA`:
+
+```{r}
+table(is.na(datos))
+```
+## **limpiar el dataset**
+En el caso de los datos del tiempo en redes sociales, horas de sueño, satisfacción de trabajo, tiempo en pantalla antes de dormir y nivel de estrés, los datos faltantes pueden sustituirse por el promedio (la cual es una métrica que no es muy sensible a datos atípicos).
+En el caso del actual_productivity_score si deben eliminarse las filas con el dato faltable porque es la variable objetivo.Como tuvimos sufisientes observaciones decidimos sacar los datos faltantes para una mejor predicción. 
+Redondeamos los parametros de actual y perceived productibity para que podemos transformarlo en parametros categoricos. Ademas agregamos una nueva columna para ver más facilmente quien es productivo y quien no. 
+
+```{r}
+                                            
+datos$daily_social_media_time[is.na(datos$daily_social_media_time)] <- mean(datos$daily_social_media_time, na.rm = TRUE)
+
+
+datos$perceived_productivity_score[is.na(datos$perceived_productivity_score)] <- mean(datos$perceived_productivity_score, na.rm = TRUE)
+
+datos$actual_productivity_score[is.na(datos$actual_productivity_score)] <- mean(datos$actual_productivity_score, na.rm = TRUE)
+datos$stress_level[is.na(datos$stress_level)] <- mean(datos$stress_level, na.rm = TRUE)
+
+```
+```{r}
+library(dplyr)
+
+sacar_na <- function(df) {
+  # filtrar filas donde actual_productivity_score no sea NA
+  df <- df %>%
+    filter(!is.na(actual_productivity_score))
+
+  # columnas que voy a cambiar los NA con el promdedio
+  cols_to_impute <- c(
+    "daily_social_media_time",
+    "job_satisfaction_score",
+    "sleep_hours",
+    "screen_time_before_sleep",
+    "stress_level",
+    "perceived_productivity_score",
+    ""
+  )
+
+  for (col in cols_to_impute) {
+    if (col %in% names(df)) {
+      mean_val <- mean(df[[col]], na.rm = TRUE)
+      df[[col]][is.na(df[[col]])] <- mean_val
+    }
+  }
+  return(df)
+}
+datos <- sacar_na(datos)
+```
+```{r}
+# Redondeamos los parametros importantes
+
+datos$stress_level <- as.integer(datos$stress_level)
+datos$actual_productivity_score <- round(datos$actual_productivity_score, digits = 1)
+datos$perceived_productivity_score <-round(datos$perceived_productivity_score, digits = 1)
+datos$work_hours_per_day <- round(datos$work_hours_per_day, digits = 1)
+datos$job_satisfaction_score <- round(datos$job_satisfaction_score , digits = 1)
+datos$daily_social_media_time<- round(datos$daily_social_media_time, digits = 1)
+datos$sleep_hours<- round(datos$sleep_hours, digits = 1)
+datos$screen_time_before_sleep<- round(datos$screen_time_before_sleep, digits = 1)
+datos$weekly_offline_hours<- round(datos$weekly_offline_hours, digits = 1)
+# Agregamos una nueva columna que diga si fue productivo o no, es productivo si la productividad actual es mayor a 5
+datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.5, false, true))
+
+str(datos)
+
+```
+## Analisis estadistico
+### **Variables cuantitativas** 
+```{r}
+summary(datos[, c("daily_social_media_time", "work_hours_per_day", "perceived_productivity_score", "actual_productivity_score", "stress_level", "job_satisfaction_score")])
+
+var(datos$daily_social_media_time)
+var(datos$work_hours_per_day) 
+var(datos$perceived_productivity_score) 
+var(datos$actual_productivity_score) 
+var(datos$stress_level)
+var(datos$job_satisfaction_score)
+```
+### **variables categoricas**
+
+```{r}
+
+table(datos$has_digital_wellbeing_enabled)
+
+prop.table(table(datos$has_digital_wellbeing_enabled))
+
+table(datos$es_productivo)
+
+prop.table(table(datos$es_productivo))
+```
+## **Graficos**
+
+
+```{r}
+hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
+```
+```{r}
+
+
+plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="productividad real",xlab="horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
+
+
+plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="productividad real", xlab="horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
+plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad real", xlab="productividad real",main="", xlim=c(3, 10), ylim=c(0, 11))
+
+
+
+```
+## Dividir el data set
+```{r}
+set.seed(22)  # Semilla para que siempre salga igual si volvés a correrlo
+
+n <- nrow(datos)
+
+# Mezclar aleatoriamente los índices
+indices <- sample(1:n)
+
+# Proporciones
+n_train <- round(0.70 * n)
+n_valid <- round(0.15 * n)
+n_test  <- n - n_train - n_valid  # lo que quede
+
+# Particiones
+train_indices <- indices[1:n_train]
+valid_indices <- indices[(n_train + 1):(n_train + n_valid)]
+test_indices  <- indices[(n_train + n_valid + 1):n]
+
+# Subsets finales
+train <- datos[train_indices, ]
+valid <- datos[valid_indices, ]
+test  <- datos[test_indices, ]
+```
+```{r}
+train
+```
+```{r}
+
+train$has_digital_wellbeing_enabled<-as.factor(train$has_digital_wellbeing_enabled)
+train$gender  <- as.factor(train$gender)
+train$job_type <- as.factor(train$job_type)
+train$social_platform_preference <- as.factor(train$social_platform_preference)
+train$uses_focus_apps <- as.factor(train$uses_focus_apps)
+
+```
+
+
+```{r}
+train
+```
+## Entrenar el modelo
+```{r}
+library(rpart)
+
+
+tree <- rpart(
+  formula = es_productivo ~ age + gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + perceived_productivity_score + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
+  data = train,
+  method = "class"
+)
+
+
+```
+## Grafico del arbol 
+```{r}
+# install.packages("rpart.plot") # Descomentar si no lo tienen ya instalado.
+library(rpart.plot)
+rpart.plot(tree)
+
+```
+## Predicciones
+```{r}
+
+test$has_digital_wellbeing_enabled<-as.factor(test$has_digital_wellbeing_enabled)
+test$gender  <- as.factor(test$gender)
+test$job_type <- as.factor(test$job_type)
+test$social_platform_preference <- as.factor(test$social_platform_preference)
+test$uses_focus_apps <- as.factor(test$uses_focus_apps)
+
+```
+```{r}
+
+predictions_prob  <- predict(tree, newdata = test, type="prob")
+predictions_class <- predict(tree, newdata = test, type="class")
+```
+```{r}
+
+predictions_prob
+```
+
+
