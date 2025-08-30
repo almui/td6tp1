@@ -4,51 +4,36 @@ output:
   html_document:
     df_print: paged
 ---
+# Introducción al problema
 
-## **subir el dataset**
+# Preparación de los datos
+## **Subir el dataset**
 
 ```{r }
 datos <- read.csv("social_media_vs_productivity.csv")
 ```
+
 Veamos si la base de datos contiene valores `NA`:
 
 ```{r}
 table(is.na(datos))
 ```
-## **limpiar el dataset**
-En el caso de los datos del tiempo en redes sociales, horas de sueño, satisfacción de trabajo, tiempo en pantalla antes de dormir y nivel de estrés, los datos faltantes pueden sustituirse por el promedio (la cual es una métrica que no es muy sensible a datos atípicos).
-En el caso del actual_productivity_score si deben eliminarse las filas con el dato faltable porque es la variable objetivo.Como tuvimos sufisientes observaciones decidimos sacar los datos faltantes para una mejor predicción. 
-Redondeamos los parametros de actual y perceived productibity para que podemos transformarlo en parametros categoricos. Ademas agregamos una nueva columna para ver más facilmente quien es productivo y quien no. 
+
+## **Limpiamos el dataset**
+
+En el caso para la variable objetivo actual_productivity_score, se eliminaron las filas con datos faltantes, porque es fundamental que la variable a predecir esté completa. Dado que contamos con suficientes observaciones, esta eliminación no afecta significativamente la cantidad de datos disponibles y permite obtener mejores predicciones.
+
+En cambio, para el caso de las demas variables los valores faltantes se dejaron tal cual, ya que estamos utilizando un árbol de decisión, el cual puede manejar NA de forma nativa.
+
+Además, los valores de actual_productivity_score y perceived_productivity_score se redondearon para transformarlos en variables categóricas, y se creó una nueva columna que indica de manera más clara quién es productivo y quién no.
 
 ```{r}
-library(dplyr)
 
-sacar_na <- function(df) {
-  # filtrar filas donde actual_productivity_score no sea NA
-  df <- df %>%
-    filter(!is.na(actual_productivity_score))
+datos <- datos[!is.na(datos$actual_productivity_score), ]
 
-  # columnas que voy a cambiar los NA con el promdedio
-  cols_to_impute <- c(
-    "daily_social_media_time",
-    "job_satisfaction_score",
-    "sleep_hours",
-    "screen_time_before_sleep",
-    "stress_level",
-    "perceived_productivity_score",
-    ""
-  )
-
-  for (col in cols_to_impute) {
-    if (col %in% names(df)) {
-      mean_val <- mean(df[[col]], na.rm = TRUE)
-      df[[col]][is.na(df[[col]])] <- mean_val
-    }
-  }
-  return(df)
-}
-datos <- sacar_na(datos)
+table(is.na(datos))
 ```
+
 ```{r}
 # Redondeamos los parametros importantes
 
@@ -67,8 +52,11 @@ datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.0, "
 str(datos)
 
 ```
+
 ## Analisis estadistico
-### **Variables cuantitativas** 
+
+### **Variables cuantitativas**
+
 ```{r}
 summary(datos[, c("daily_social_media_time", "work_hours_per_day", "perceived_productivity_score", "actual_productivity_score", "stress_level", "job_satisfaction_score")])
 
@@ -79,6 +67,7 @@ var(datos$actual_productivity_score)
 var(datos$stress_level)
 var(datos$job_satisfaction_score)
 ```
+
 ### **variables categoricas**
 
 ```{r}
@@ -91,12 +80,13 @@ table(datos$es_productivo)
 
 prop.table(table(datos$es_productivo))
 ```
-## **Graficos**
 
+## Graficos**
 
 ```{r}
 hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
 ```
+
 ```{r}
 
 plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="productividad real",xlab="productividad persivida",main="", xlim=c(0, 9), ylim=c(0, 11))
@@ -107,12 +97,14 @@ plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad rea
 
 
 ```
-## Dividir el data set
+
+# Construcción de un árbol de decisión básico
+
 ```{r}
 set.seed(22)  # Semilla para que siempre salga igual si volvés a correrlo
 
-datos <- datos %>% select(-actual_productivity_score)
-datos <- datos %>% select(-perceived_productivity_score)
+datos <- subset(datos, select = -actual_productivity_score)
+
 
 
 n <- nrow(datos)
@@ -137,9 +129,11 @@ test  <- datos[test_indices, ]
 
 
 ```
+
 ```{r}
 train
 ```
+
 ```{r}
 
 train$has_digital_wellbeing_enabled<-as.factor(train$has_digital_wellbeing_enabled)
@@ -155,31 +149,36 @@ test$es_productivo  <- factor(test$es_productivo)
 
 ```
 
-
 ```{r}
 train
 ```
+
 ## Entrenar el modelo
+
 ```{r}
 library(rpart)
 #prueba
 
 tree <- rpart(
-  formula =  es_productivo ~ age + gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
+  formula =  es_productivo ~ age + perceived_productivity_score+ gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
   data = train,
   method = "class"
 )
 
 
 ```
-## Grafico del arbol 
+
+## Grafico del arbol
+
 ```{r}
 # install.packages("rpart.plot") # Descomentar si no lo tienen ya instalado.
 library(rpart.plot)
 rpart.plot(tree)
 
 ```
-## Predicciones
+
+# Evaluación del árbol de decisión básico
+
 ```{r}
 
 test$has_digital_wellbeing_enabled<-as.factor(test$has_digital_wellbeing_enabled)
@@ -189,18 +188,21 @@ test$social_platform_preference <- as.factor(test$social_platform_preference)
 test$uses_focus_apps <- as.factor(test$uses_focus_apps)
 
 ```
+
 ```{r}
 
 predictions_prob  <- predict(tree, newdata = test, type="prob")
 predictions_class <- predict(tree, newdata = test, type="class")
 ```
+
 ```{r}
 
-predictions_prob
-colnames(predictions_prob)
+# predictions_prob
+
 # probablemente sea "Sí" y "No", no "SI"
 
 ```
+
 ```{r}
 
 # Accuracy
@@ -217,66 +219,181 @@ Precision(y_true=test$es_productivo, y_pred = predictions_class, positive ="SI" 
 Recall(y_true=test$es_productivo, y_pred = predictions_class, positive = "SI")
 AUC(y_pred = predictions_prob[, "SI"],y_true = ifelse(test$es_productivo == "SI", 1, 0))
 ```
-```{r}
-library(caret)
+# Optimización del modelo
 
+```{r , echo=TRUE}
 
+train_tree <- function(train_data, max_depth, min_split, min_bucket){
+  
+  tree <- rpart(es_productivo ~ age + gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + stress_level + sleep_hours + screen_time_before_sleep + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score+ perceived_productivity_score,
+                data = train_data, 
+                method = "class",
+                maxdepth = max_depth,
+                minsplit = min_split,
+                minbucket = min_bucket,
+                cp = 0,
+                xval = 0)
+  return (tree)
+}
 
-ctrl <- trainControl(
-  method = "cv",
-  number = 5,
-  classProbs = TRUE,               # necesario para calcular probabilidades
-  summaryFunction = twoClassSummary, # ROC/AUC
-  savePredictions = "final"
-)
+randSearch <- function(train, valid, maxdepth_hasta, minsplit_hasta, minbucket_hasta, n_iter) {
+ 
 
-grid <- expand.grid(maxdepth = 1:10)  # grid exhaustivo de maxdepth va a probar valores desde el 1 al 10
-
-
-
-
-
-
-```
-
-```{r}
-minsplit_vals <- c(2, 5)
-minbucket_vals <- c(1, 3)
-
-
-optimizar_hp <-function(train,ctrl,grid, minsplit_vals, minbucket_vals){
-  best <- data.frame(minsplit = 0,minbucket = 0,maxdepth = 0)
-  best_ROC <- 0
-  best_tree <- 0
-  for(ms in minsplit_vals){
-    for(mb in minbucket_vals){
-      #temp para elegir el mejor maxdepth
-      
-      tree_temp <- train(
-        es_productivo ~ .,
-        data = train,
-        method = "rpart2",
-        trControl = ctrl,
-        metric = "ROC",
-        tuneGrid = grid,
-        control = rpart.control(cp = 0, xval = 0, minsplit = ms, minbucket = mb)
-      )
-      
-      
-      temp_ROC <-  tree_temp$results$ROC[which.max(tree_temp$results$ROC)]
-      if(best_ROC > temp_ROC){
-        best_tree <-tree_temp
-        best_ROC <-tree_temp$results$ROC
-        best <- data.frame(minsplit = ms,minbucket = mb,maxdepth = tree_temp$bestTune$maxdepth)
-      }
-    }
+  mejor_auc <- 0
+  aucs <- c()
+  max_ds<- c()
+  min_ss <- c()
+  min_bs <- c()
+  
+  
+  for (i in 1:n_iter) {
+    
+    max_d <- sample(1:maxdepth_hasta, 1) #elige solo un numero rand del conjunto
+    min_s <- sample(1:minsplit_hasta, 1)
+    min_b <- sample(1:minbucket_hasta, 1)
+    
+    tree <- train_tree(train, max_d, min_s, min_b)
+    pred <- predict(tree, newdata = valid, type = "prob")
+    
+    auc <- AUC(y_pred = pred[, "SI"], y_true = ifelse(valid$es_productivo == "SI", 1, 0))
+    
+    aucs<- c(aucs, auc)
+    max_ds<- c(max_ds, max_d)
+    min_ss <- c(min_ss, min_s)
+    min_bs <- c(min_bs, min_b)
   }
-  return(best)
+  
+  return(data.frame(maxdepth = max_ds, minsplit = min_ss, minbucket = min_bs, AUC = aucs))
 }
 
 
 ```
+Realizada la random search, graficamos la relación de cada una de los hiperparámetros con el AUC del árbol.
+```{r , echo=FALSE}
+set.seed(22)
+res <- randSearch(train,valid,30,40,40,20)
+res
+```
+```{r , echo=FALSE}
+  res <- res[order(res$AUC, decreasing = TRUE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+res
+```
+
+```{r , echo=FALSE} 
+plot( res$AUC,res$maxdepth,
+     type = "o",
+     main = "AUc-ROC - max_depth", 
+     ylab = "max_depth", 
+     xlab = "AUC", 
+     col = "blue", 
+     pch = 19)  
+```
+
+
+```{r , echo=FALSE}
+# Scatter plot de la relación entre minsplit y el AUC-ROC
+plot(res$AUC,res$minsplit,
+     type = "o",
+     main = "AUC-ROC - minsplit", 
+     ylab = "minsplit", 
+     xlab = "AUC", 
+     col = "red", 
+     pch = 19)  
+```
+
+```{r , echo=FALSE}
+# Scatter plot de la relación entre minbucket y el AUC-ROC
+plot(res$AUC, res$minbucket, 
+     type = "o",
+     main = "AUC-ROC - minbucket", 
+     ylab = "minbucket", 
+     xlab = "AUC", 
+     col = "orange", 
+     pch = 19)  
+```
+
+## Mejor rendimiento 
+```{r , echo=FALSE}
+
+
+opt_model <-function(train, valid){
+  set.seed(22)
+  resultados <- randSearch(train,valid,30,40,40,20)
+  resultados <- resultados[order(resultados$AUC, decreasing = TRUE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+  
+  mejor_auc <- resultados$AUC[1]
+  mejor_maxd <- resultados$maxdepth[1]
+  mejor_mins<- resultados$minsplit[1]
+  mejor_minb<- resultados$minbucket[1]
+  
+  mejor_arbol <- train_tree(train, mejor_maxd, mejor_mins, mejor_mins)
+  return(mejor_arbol)
+}
+test_model <- function(tree, test){
+  set.seed(123)
+  prediccion <- predict(tree, newdata = test, type = "prob")
+auc_best_tree <- AUC(y_pred =prediccion[, "SI"],y_true = ifelse(test$es_productivo == "SI", 1, 0))
+  return(auc_best_tree)
+}
+
+```
+
+```{r , echo=FALSE}
+
+mejor_arbol <- opt_model(train, valid)
+mejor_auc <-test_model(mejor_arbol, test)
+```
+
+```{r , echo=TRUE}
+
+mejor_auc
+```
 
 ```{r}
-optimizar_hp(train,ctrl,grid, minsplit_vals, minbucket_vals)
+rpart.plot(mejor_arbol)
+
+```
+# Análisis del impacto de  etiquetas corruptas
+```{r}
+
+
+corromper <- function(train, p) {
+  set.seed(123)
+  n <- nrow(train)
+  
+
+  n_corrupt <- round(p * n)
+  indices <- sample(1:n, n_corrupt)
+
+  train$es_productivo[indices] <- ifelse(
+    train$es_productivo[indices] == "SI", "NO", "SI"
+  )
+  
+  return(train)
+}
+
+```
+
+```{r}
+set.seed(22)
+porcent <- c(0.05,0.1,0.15,0.2,0.25,0.3)
+aucs <- c()
+
+for(p in porcent){
+  ver_p <- corromper(train, p)
+  mejor_arbol_p <- opt_model(ver_p, valid)
+  mejor_auc_p <- test_model(mejor_arbol_p, test)
+
+  aucs <- c(aucs, mejor_auc_p)
+}
+
+
+aucs
+mejor_auc
+total <- c(0, porcent)
+total_aucs <- c(mejor_auc, aucs)
+```
+
+```{r}
+plot(total, total_aucs, type = "o", col = "blue", lwd = 2, pch = 16, xlab="porcentaje corrupta", ylab="AUC",main="", )
 ```
