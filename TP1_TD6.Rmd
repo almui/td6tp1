@@ -136,9 +136,6 @@ test  <- datos[test_indices, ]
 
 ```
 
-```{r}
-train
-```
 
 ```{r}
 
@@ -163,7 +160,7 @@ train
 
 ```{r}
 library(rpart)
-#prueba
+
 
 tree <- rpart(
   formula =  es_productivo ~ age + perceived_productivity_score+ gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
@@ -203,9 +200,7 @@ predictions_class <- predict(tree, newdata = test, type="class")
 
 ```{r}
 
-# predictions_prob
-
-# probablemente sea "Sí" y "No", no "SI"
+predictions_prob
 
 ```
 
@@ -279,7 +274,6 @@ randSearch <- function(train, valid, maxdepth_hasta, minsplit_hasta, minbucket_h
 Realizada la random search, graficamos la relación de cada una de los hiperparámetros con el AUC del árbol.
 
 ```{r , echo=FALSE}
-set.seed(22)
 res <- randSearch(train,valid,30,40,40,20)
 res
 ```
@@ -326,8 +320,7 @@ plot(res$AUC, res$minbucket,
 ```{r , echo=FALSE}
 
 
-opt_model <-function(train, valid){
-  set.seed(22)
+opt_model <-function(train, valid){ 
   resultados <- randSearch(train,valid,30,40,40,20)
   resultados <- resultados[order(resultados$AUC, decreasing = TRUE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
   
@@ -340,7 +333,6 @@ opt_model <-function(train, valid){
   return(mejor_arbol)
 }
 test_model <- function(tree, test){
-  set.seed(123)
   prediccion <- predict(tree, newdata = test, type = "prob")
 auc_best_tree <- AUC(y_pred =prediccion[, "SI"],y_true = ifelse(test$es_productivo == "SI", 1, 0))
   return(auc_best_tree)
@@ -370,7 +362,7 @@ rpart.plot(mejor_arbol)
 
 
 corromper <- function(train, p) {
-  set.seed(123)
+
   n <- nrow(train)
   
 
@@ -387,7 +379,7 @@ corromper <- function(train, p) {
 ```
 
 ```{r}
-set.seed(22)
+
 porcent <- c(0.05,0.1,0.15,0.2,0.25,0.3)
 aucs <- c()
 
