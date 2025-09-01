@@ -4,9 +4,13 @@ output:
   html_document:
     df_print: paged
 ---
+
 # Introducción al problema
 
+En este trabajo exploramos el link entre diversos factores como el uso de redes sociales, el estres, el sueno, etc en la productividad. Es una simulacion obtenida de kaggle (<https://www.kaggle.com/datasets/mahdimashayekhi/social-media-vs-productivity/data>) de 30000 observaciones, con 18 variables predictoras, tanto numericas (numero de notificaciones, horas trabajadas, horas en redes, etc) como categoricas (genero, red social preferida, tipo de trabajo,etc). Intentamos predecir si una persona fue productiva o no basado en estos factores, transformando una variable numerica en binario (actual_productivity_score \> 5.0). Para predecirla empezamos con un arbol naive, y luego entrenamos los hiperparametros para optimizarlo.
+
 # Preparación de los datos
+
 ## **Subir el dataset**
 
 ```{r }
@@ -47,6 +51,8 @@ datos$sleep_hours<- round(datos$sleep_hours, digits = 1)
 datos$screen_time_before_sleep<- round(datos$screen_time_before_sleep, digits = 1)
 datos$weekly_offline_hours<- round(datos$weekly_offline_hours, digits = 1)
 # Agregamos una nueva columna que diga si fue productivo o no, es productivo si la productividad actual es mayor a 5
+library(dplyr)
+
 datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.0, "SI", "NO"))
 
 str(datos)
@@ -81,7 +87,7 @@ table(datos$es_productivo)
 prop.table(table(datos$es_productivo))
 ```
 
-## Graficos**
+## Graficos\*\*
 
 ```{r}
 hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
@@ -219,6 +225,7 @@ Precision(y_true=test$es_productivo, y_pred = predictions_class, positive ="SI" 
 Recall(y_true=test$es_productivo, y_pred = predictions_class, positive = "SI")
 AUC(y_pred = predictions_prob[, "SI"],y_true = ifelse(test$es_productivo == "SI", 1, 0))
 ```
+
 # Optimización del modelo
 
 ```{r , echo=TRUE}
@@ -268,18 +275,21 @@ randSearch <- function(train, valid, maxdepth_hasta, minsplit_hasta, minbucket_h
 
 
 ```
+
 Realizada la random search, graficamos la relación de cada una de los hiperparámetros con el AUC del árbol.
+
 ```{r , echo=FALSE}
 set.seed(22)
 res <- randSearch(train,valid,30,40,40,20)
 res
 ```
+
 ```{r , echo=FALSE}
   res <- res[order(res$AUC, decreasing = TRUE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
 res
 ```
 
-```{r , echo=FALSE} 
+```{r , echo=FALSE}
 plot( res$AUC,res$maxdepth,
      type = "o",
      main = "AUc-ROC - max_depth", 
@@ -288,7 +298,6 @@ plot( res$AUC,res$maxdepth,
      col = "blue", 
      pch = 19)  
 ```
-
 
 ```{r , echo=FALSE}
 # Scatter plot de la relación entre minsplit y el AUC-ROC
@@ -312,7 +321,8 @@ plot(res$AUC, res$minbucket,
      pch = 19)  
 ```
 
-## Mejor rendimiento 
+## Mejor rendimiento
+
 ```{r , echo=FALSE}
 
 
@@ -353,7 +363,9 @@ mejor_auc
 rpart.plot(mejor_arbol)
 
 ```
-# Análisis del impacto de  etiquetas corruptas
+
+# Análisis del impacto de etiquetas corruptas
+
 ```{r}
 
 
