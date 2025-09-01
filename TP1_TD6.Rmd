@@ -63,8 +63,9 @@ str(datos)
 
 ### **Variables cuantitativas**
 
+Usamos la funcion summary para obtener las estadisticas descriptivas de las variables principales del dataset. Estas medidas incluyen el minimo, el maximo, los distintos cuantiles, la cantidad de missings, la media y la mediana. Ademas agregamos las varianzas de cada una. Como se puede observar en los calculos de las varianzas hay algunas variables cuya varianza aparece como una NA, esto se debe a que al intentar hacer un calculo con un NA el resultado va a ser siempre un missing al no saber su valor.
 ```{r}
-summary(datos[, c("daily_social_media_time", "work_hours_per_day", "perceived_productivity_score", "actual_productivity_score", "stress_level", "job_satisfaction_score")])
+summary(datos[, c("daily_social_media_time", "work_hours_per_day", "perceived_productivity_score", "actual_productivity_score", "stress_level", "job_satisfaction_score", "age")])
 
 var(datos$daily_social_media_time)
 var(datos$work_hours_per_day) 
@@ -72,10 +73,11 @@ var(datos$perceived_productivity_score)
 var(datos$actual_productivity_score) 
 var(datos$stress_level)
 var(datos$job_satisfaction_score)
+var(datos$age)
 ```
 
-### **variables categoricas**
-
+### **Variables Binarias**
+Para las variables binarias hacemos tablas de frecuencia. En el caso de la variable has_digital_wellbeing_enabled se ve la cantidad de personas que tienen activada esta funcionalidad mientras que la otra variable se ve la cantidad de personas que son productivos.
 ```{r}
 
 table(datos$has_digital_wellbeing_enabled)
@@ -92,10 +94,12 @@ prop.table(table(datos$es_productivo))
 ```{r}
 hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
 ```
+El histograma muestra la distribución del puntaje de productividad real de los usuarios. La forma es aproximadamente simétrica, con mayor concentración de valores en la zona media (entre 3 y 7), mientras que las frecuencias disminuyen hacia los extremos bajos y altos. Esto sugiere que la mayoría de los individuos tienen niveles de productividad intermedios, mientras que son pocos los que presentan productividad muy baja o muy alta.
+
 
 ```{r}
 
-plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="productividad real",xlab="productividad persivida",main="", xlim=c(0, 9), ylim=c(0, 11))
+plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="productividad real",xlab="productividad percivida",main="", xlim=c(0, 9), ylim=c(0, 11))
 plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="productividad real",xlab="horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
 plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="productividad real", xlab="horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
 plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad real", xlab="productividad real",main="", xlim=c(3, 10), ylim=c(0, 11))
@@ -106,6 +110,7 @@ plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad rea
 
 # Construcción de un árbol de decisión básico
 
+Hacemos la division de los datos con las proporciones correspondientes en los 3 conjuntos distintos, el conjunto de training, de testing y de validation.
 ```{r}
 set.seed(22)  # Semilla para que siempre salga igual si volvés a correrlo
 
@@ -136,7 +141,7 @@ test  <- datos[test_indices, ]
 
 ```
 
-
+Se convierten estas variables en factores porque representan categorías y no valores numéricos continuos. De esta forma, R las interpreta correctamente como cualitativas al momento de analizarlas o usarlas en un modelo. Esto evita que el algoritmo las trate como números con un orden o magnitud inexistente.
 ```{r}
 
 train$has_digital_wellbeing_enabled<-as.factor(train$has_digital_wellbeing_enabled)
@@ -147,8 +152,6 @@ train$uses_focus_apps <- as.factor(train$uses_focus_apps)
 # Convertir a factor
 train$es_productivo <- factor(train$es_productivo)
 test$es_productivo  <- factor(test$es_productivo)
-
-
 
 ```
 
@@ -163,7 +166,7 @@ library(rpart)
 
 
 tree <- rpart(
-  formula =  es_productivo ~ age + perceived_productivity_score+ gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + stress_level + sleep_hours + screen_time_before_sleep + breaks_during_work + uses_focus_apps + has_digital_wellbeing_enabled + coffee_consumption_per_day + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score,
+  formula =  es_productivo ~ age + perceived_productivity_score + daily_social_media_time + work_hours_per_day + stress_level + has_digital_wellbeing_enabled + job_satisfaction_score,
   data = train,
   method = "class"
 )
@@ -179,6 +182,7 @@ library(rpart.plot)
 rpart.plot(tree)
 
 ```
+El árbol de decisión entrenado con las variables seleccionadas muestra que la más influyente para predecir si una persona es productiva o no es el perceived_productivity_score. El modelo establece un umbral en 5.7: cuando el puntaje de productividad percibida es menor a 5.7, la mayoría de los casos se clasifican como no productivos (52%). En cambio, cuando el puntaje es mayor o igual a 5.7, la predicción se inclina fuertemente hacia si productivo, concentrando el 48% de los casos. Esto indica que, a pesar de haber considerado variables como edad, tiempo en redes sociales, horas de trabajo, nivel de estrés, satisfacción laboral y uso de bienestar digital, el árbol decidió que la única variable relevante en la primera división es la productividad percibida (Debido a que la variable a predecir fue armada en base a los valores de actual_productivity_score, se decidio no inncluir esta en el entrenamiento del modelo, ya que si no el arbol solo depende de esta variable y seria un caso de data leakage). En otras palabras, el modelo encontró que este puntaje es el factor más determinante para distinguir entre personas productivas y no productivas en el conjunto de datos.
 
 # Evaluación del árbol de decisión básico
 
