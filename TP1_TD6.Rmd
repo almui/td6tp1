@@ -116,7 +116,7 @@ Finalmente, en el cuarto gráfico, las horas de sueño presentan también una di
 
 # Construcción de un árbol de decisión básico
 
-Hacemos la division de los datos con las proporciones correspondientes en los 3 conjuntos distintos, el conjunto de training, de testing y de validation.
+Hacemos la division de los datos con las proporciones correspondientes en los 3 conjuntos distintos, el conjunto de training, de testing y de validation. Seteamos una semilla para asegurar la replicabilidad.
 ```{r}
 set.seed(22)  # Semilla para que siempre salga igual si volvés a correrlo
 
@@ -292,23 +292,27 @@ res
 ```
 
 ```{r , echo=FALSE}
-  res <- res[order(res$AUC, decreasing = TRUE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+  res <- res[order(res$maxdepth, decreasing = FALSE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
 res
 ```
 
 ```{r , echo=FALSE}
-plot( res$AUC,res$maxdepth,
+plot(res$maxdepth,res$AUC,
      type = "o",
-     main = "AUc-ROC - max_depth", 
-     ylab = "max_depth", 
-     xlab = "AUC", 
+     main = "AUC-ROC - max_depth", 
+     ylab = "AUC", 
+     xlab = "max_depth", 
      col = "blue", 
      pch = 19)  
+```
+```{r , echo=FALSE}
+  res <- res[order(res$minsplit, decreasing = FALSE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+res
 ```
 
 ```{r , echo=FALSE}
 # Scatter plot de la relación entre minsplit y el AUC-ROC
-plot(res$AUC,res$minsplit,
+plot(res$minsplit, res$AUC,
      type = "o",
      main = "AUC-ROC - minsplit", 
      ylab = "minsplit", 
@@ -316,10 +320,14 @@ plot(res$AUC,res$minsplit,
      col = "red", 
      pch = 19)  
 ```
+```{r , echo=FALSE}
+  res <- res[order(res$minbucket, decreasing = FALSE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+res
+```
 
 ```{r , echo=FALSE}
 # Scatter plot de la relación entre minbucket y el AUC-ROC
-plot(res$AUC, res$minbucket, 
+plot(res$minbucket, res$AUC,
      type = "o",
      main = "AUC-ROC - minbucket", 
      ylab = "minbucket", 
@@ -360,8 +368,24 @@ mejor_auc <-test_model(mejor_arbol, test)
 ```
 
 ```{r , echo=TRUE}
-
 mejor_auc
+```
+```{r}
+library(pROC)
+
+# Generamos predicciones de probabilidad sobre el set de test
+predicciones <- predict(mejor_arbol, newdata = test, type = "prob")[, "SI"]
+
+# Creamos el objeto ROC
+roc_obj <- roc(test$es_productivo, predicciones)
+
+plot(
+  roc_obj,
+  col = "blue",
+  lwd = 2,
+  main = paste("Curva ROC - AUC:", round(auc(roc_obj), 3)),
+  legacy.axes = TRUE # <-- esto cambia la escala a 0→1
+)
 ```
 
 ```{r}
