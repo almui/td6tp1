@@ -254,12 +254,11 @@ Estos valores tan altos son coherentes con el hecho de que el dataset utilizado 
 
 
 # Optimización del modelo
-
+Usamos el random search para optimizar los hiperparametros, ya que esta funcion combina de forma aleatoria los valores de max_depth, min_split y min_bucket, en los rangos que le indiquemos, buscando optimizar el valor del AUC-ROC en cada iteracion.
 ```{r , echo=TRUE}
 
 train_tree <- function(train_data, max_depth, min_split, min_bucket){
-  
-  tree <- rpart(es_productivo ~ age + perceived_productivity_score + daily_social_media_time + work_hours_per_day + stress_level + has_digital_wellbeing_enabled + job_satisfaction_score,,
+  tree <- rpart(es_productivo ~ age + perceived_productivity_score + daily_social_media_time + work_hours_per_day + stress_level + has_digital_wellbeing_enabled + job_satisfaction_score,
                 data = train_data, 
                 method = "class",
                 maxdepth = max_depth,
@@ -311,7 +310,7 @@ res
 ```
 
 ```{r , echo=FALSE}
-  res <- res[order(res$maxdepth, decreasing = FALSE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+  res <- res[order(res$maxdepth, decreasing = FALSE), ] 
 res
 ```
 
@@ -325,7 +324,7 @@ plot(res$maxdepth,res$AUC,
      pch = 19)  
 ```
 ```{r , echo=FALSE}
-  res <- res[order(res$minsplit, decreasing = FALSE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+  res <- res[order(res$minsplit, decreasing = FALSE), ] 
 res
 ```
 
@@ -340,7 +339,7 @@ plot(res$minsplit, res$AUC,
      pch = 19)  
 ```
 ```{r , echo=FALSE}
-  res <- res[order(res$minbucket, decreasing = FALSE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
+  res <- res[order(res$minbucket, decreasing = FALSE), ] 
 res
 ```
 
@@ -359,7 +358,7 @@ plot(res$minbucket, res$AUC,
 
 ```{r , echo=FALSE}
 
-
+# Creamos funciones auxiliares 
 opt_model <-function(train, valid){ 
   resultados <- randSearch(train,valid,30,40,40,50)
   resultados <- resultados[order(resultados$AUC, decreasing = TRUE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
@@ -385,7 +384,7 @@ auc_best_tree <- AUC(y_pred =prediccion[, "SI"],y_true = ifelse(test$es_producti
 mejor_arbol <- opt_model(train, valid)
 mejor_auc <-test_model(mejor_arbol, test)
 ```
-
+El AUC-ROC despues de probar el conjunto de entrenamiento con el nuevo modelo:
 ```{r , echo=TRUE}
 mejor_auc
 ```
@@ -403,7 +402,7 @@ plot(
   col = "blue",
   lwd = 2,
   main = paste("Curva ROC - AUC:", round(auc(roc_obj), 3)),
-  legacy.axes = TRUE # <-- esto cambia la escala a 0→1
+  legacy.axes = TRUE # esto cambia la escala a 0 a 1
 )
 ```
 
@@ -418,8 +417,8 @@ rpart.plot(mejor_arbol, roundint = FALSE)
 
 # 5. Interpretacion de resultados
 
-Como dejamos el cp y xval en 0, cp va a dejar que el arbol cresca sin restriccion de la complexidad, y como el xval no vamos a hacer cross validation lo que significa que no va a 
-
+Como dejamos el cp y xval en 0, cp va a dejar que el arbol cresca sin restriccion de la complexidad lo cual hace que el arbol optimizado se vea mas profundo que el arbol base, y como el xval no vamos a hacer cross validation lo que tiene sentido porque ya tenemos un conjunto de validacion entonces no es necesario.
+Al compararlo con el arbol del punto 3, podemos ver que es más profundo y se amplia más, esto se debe a que cambiamos los valores default que restringian el modelo.
 
 ```{r , echo=FALSE}
 # Variables importantes para el arbol base
@@ -440,10 +439,7 @@ En el arbol base las varibales más importantes son la productividad persivida y
 
 
 corromper <- function(train, p) {
-
   n <- nrow(train)
-  
-
   n_corrupt <- round(p * n)
   indices <- sample(1:n, n_corrupt)
 
@@ -502,3 +498,8 @@ ggplot(df_plot, aes(x = porcentaje_corrupta, y = media_auc)) +
        title = "AUC promedio con Desvio estandar") +
   theme_minimal()
 ```
+# Conclusion 
+- Resumir los hallazgos principales del análisis.
+- Reflexionar sobre la efectividad del árbol de decisión para el problema planteado.
+- Sugerir posibles mejoras o direcciones futuras para el análisis.
+
