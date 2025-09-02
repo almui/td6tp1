@@ -96,17 +96,23 @@ hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
 ```
 El histograma muestra la distribución del puntaje de productividad real de los usuarios. La forma es aproximadamente simétrica, con mayor concentración de valores en la zona media (entre 3 y 7), mientras que las frecuencias disminuyen hacia los extremos bajos y altos. Esto sugiere que la mayoría de los individuos tienen niveles de productividad intermedios, mientras que son pocos los que presentan productividad muy baja o muy alta.
 
-
+Hacemos graficos de dispersion para ver las distintas relaciones entre algunas de las variables importantes
 ```{r}
 
-plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="productividad real",xlab="productividad percivida",main="", xlim=c(0, 9), ylim=c(0, 11))
-plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="productividad real",xlab="horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
-plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="productividad real", xlab="horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
-plot(datos$sleep_hours, datos$actual_productivity_score, ylab="productividad real", xlab="productividad real",main="", xlim=c(3, 10), ylim=c(0, 11))
-
-
+plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="Productividad Real",xlab="Productividad Percivida",main="", xlim=c(0, 9), ylim=c(0, 11))
+plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="Productividad real",xlab="Horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
+plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
+plot(datos$sleep_hours, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de sueño",main="", xlim=c(3, 10), ylim=c(0, 11))
 
 ```
+
+En los gráficos se observan diferentes factores asociados a la productividad real. En el primer gráfico, la productividad percibida muestra una relación positiva y bastante clara con la productividad real, lo que indica que quienes creen ser más productivos, en general, efectivamente lo son. 
+
+En cambio, en el segundo gráfico, las horas en redes sociales no presentan una tendencia clara, la productividad real aparece dispersa en todo el rango de horas, aunque se aprecia que a medida que aumentan las horas de uso, la productividad tiende a concentrarse en valores más bajos. 
+
+En el tercer gráfico, las horas de trabajo por día tampoco muestran una relación lineal fuerte con la productividad real, ya que los puntos están muy dispersos y no hay un patrón definido. 
+
+Finalmente, en el cuarto gráfico, las horas de sueño presentan también una distribución bastante uniforme: la productividad real se mantiene en todo el rango de valores independientemente de las horas dormidas, aunque se observa cierta concentración de mayor productividad en torno a un rango intermedio de sueño
 
 # Construcción de un árbol de decisión básico
 
@@ -224,6 +230,9 @@ Precision(y_true=test$es_productivo, y_pred = predictions_class, positive ="SI" 
 Recall(y_true=test$es_productivo, y_pred = predictions_class, positive = "SI")
 AUC(y_pred = predictions_prob[, "SI"],y_true = ifelse(test$es_productivo == "SI", 1, 0))
 ```
+Los resultados del modelo muestran un desempeño muy elevado en todas las métricas de evaluación. La exactitud alcanza aproximadamente un 93%, con un F1-Score y valores de precisión y recall también cercanos al 93%. La matriz de confusión refleja un buen equilibrio en la clasificación de ambas clases, con pocos falsos positivos y falsos negativos en comparación con la cantidad total de observaciones. 
+
+Estos valores tan altos son coherentes con el hecho de que el dataset utilizado es sintético, lo cual reduce la complejidad del problema y facilita que el modelo aprenda patrones de manera más precisa, en comparación con datos reales donde suele aparecer más ruido.
 
 # Optimización del modelo
 
@@ -383,25 +392,48 @@ corromper <- function(train, p) {
 ```
 
 ```{r}
+resultados_aucs <- list()
 
 porcent <- c(0.05,0.1,0.15,0.2,0.25,0.3)
-aucs <- c()
 
-for(p in porcent){
-  ver_p <- corromper(train, p)
-  mejor_arbol_p <- opt_model(ver_p, valid)
-  mejor_auc_p <- test_model(mejor_arbol_p, test)
-
-  aucs <- c(aucs, mejor_auc_p)
+for (p in porcent) {
+  aucs_iteracion <- c()
+  for (i in 1:10) { # Bucle para 10 iteraciones
+    ver_p <- corromper(train, p)
+    mejor_arbol_p <- opt_model(ver_p, valid)
+    mejor_auc_p <- test_model(mejor_arbol_p, test)
+    aucs_iteracion <- c(aucs_iteracion, mejor_auc_p)
+  }
+  resultados_aucs[[as.character(p)]] <- aucs_iteracion
 }
 
+# Calcular medias y desviaciones estándar
+medias_aucs <- sapply(resultados_aucs, mean)
+desv_std_aucs <- sapply(resultados_aucs, sd)
 
-aucs
-mejor_auc
+# Añadir los resultados del 0% de corrupción
 total <- c(0, porcent)
-total_aucs <- c(mejor_auc, aucs)
+medias_aucs_total <- c(mejor_auc, medias_aucs)
+desv_std_aucs_total <- c(0, desv_std_aucs) # Desviación estándar es 0 para el caso sin corrupción
+
 ```
 
 ```{r}
-plot(total, total_aucs, type = "o", col = "blue", lwd = 2, pch = 16, xlab="porcentaje corrupta", ylab="AUC",main="", )
+# Crear un dataframe para el gráfico con ggplot2
+df_plot <- data.frame(
+  porcentaje_corrupta = total,
+  media_auc = medias_aucs_total,
+  desv_std = desv_std_aucs_total
+)
+
+library(ggplot2)
+# Graficar los resultados
+ggplot(df_plot, aes(x = porcentaje_corrupta, y = media_auc)) +
+  geom_line(color = "blue", size = 1.2) +
+  geom_point(color = "blue", size = 3) +
+  geom_errorbar(aes(ymin = media_auc - desv_std, ymax = media_auc + desv_std),
+                width = 0.01, color = "red") +
+  labs(x = "Porcentaje de Corrupción", y = "AUC promedio",
+       title = "AUC promedio con Desvio estandar") +
+  theme_minimal()
 ```
