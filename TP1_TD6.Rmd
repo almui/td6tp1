@@ -9,7 +9,9 @@ output:
 
 En este trabajo exploramos el link entre diversos factores como el uso de redes sociales, el estres, el sueno, etc en la productividad. Es una simulacion obtenida de kaggle (<https://www.kaggle.com/datasets/mahdimashayekhi/social-media-vs-productivity/data>) de 30000 observaciones, con 18 variables predictoras, tanto numericas (numero de notificaciones, horas trabajadas, horas en redes, etc) como categoricas (genero, red social preferida, tipo de trabajo,etc). Intentamos predecir si una persona fue productiva o no basado en estos factores, transformando una variable numerica en binario (actual_productivity_score \> 5.0). Para predecirla empezamos con un arbol naive, y luego entrenamos los hiperparametros para optimizarlo.
 
-# Preparación de los datos
+
+
+# 2. Preparación de los datos
 
 ## **Subir el dataset**
 
@@ -114,7 +116,12 @@ En el tercer gráfico, las horas de trabajo por día tampoco muestran una relaci
 
 Finalmente, en el cuarto gráfico, las horas de sueño presentan también una distribución bastante uniforme: la productividad real se mantiene en todo el rango de valores independientemente de las horas dormidas, aunque se observa cierta concentración de mayor productividad en torno a un rango intermedio de sueño
 
-# Construcción de un árbol de decisión básico
+
+
+
+
+
+# 3. Construcción de un árbol de decisión básico
 
 Hacemos la division de los datos con las proporciones correspondientes en los 3 conjuntos distintos, el conjunto de training, de testing y de validation. Seteamos una semilla para asegurar la replicabilidad.
 ```{r}
@@ -190,7 +197,13 @@ rpart.plot(tree)
 ```
 El árbol de decisión entrenado con las variables seleccionadas muestra que la más influyente para predecir si una persona es productiva o no es el perceived_productivity_score. El modelo establece un umbral en 5.7: cuando el puntaje de productividad percibida es menor a 5.7, la mayoría de los casos se clasifican como no productivos (52%). En cambio, cuando el puntaje es mayor o igual a 5.7, la predicción se inclina fuertemente hacia si productivo, concentrando el 48% de los casos. Esto indica que, a pesar de haber considerado variables como edad, tiempo en redes sociales, horas de trabajo, nivel de estrés, satisfacción laboral y uso de bienestar digital, el árbol decidió que la única variable relevante en la primera división es la productividad percibida (Debido a que la variable a predecir fue armada en base a los valores de actual_productivity_score, se decidio no inncluir esta en el entrenamiento del modelo, ya que si no el arbol solo depende de esta variable y seria un caso de data leakage). En otras palabras, el modelo encontró que este puntaje es el factor más determinante para distinguir entre personas productivas y no productivas en el conjunto de datos.
 
-# Evaluación del árbol de decisión básico
+
+
+
+
+
+
+# 4. Evaluación del árbol de decisión básico
 
 ```{r}
 
@@ -202,6 +215,7 @@ test$uses_focus_apps <- as.factor(test$uses_focus_apps)
 
 ```
 
+Hacemos las predicciones en el conjunto de testeo, calculando las probabilidades predichas y las clases predichas
 ```{r}
 
 predictions_prob  <- predict(tree, newdata = test, type="prob")
@@ -234,13 +248,18 @@ Los resultados del modelo muestran un desempeño muy elevado en todas las métri
 
 Estos valores tan altos son coherentes con el hecho de que el dataset utilizado es sintético, lo cual reduce la complejidad del problema y facilita que el modelo aprenda patrones de manera más precisa, en comparación con datos reales donde suele aparecer más ruido.
 
+
+
+
+
+
 # Optimización del modelo
 
 ```{r , echo=TRUE}
 
 train_tree <- function(train_data, max_depth, min_split, min_bucket){
   
-  tree <- rpart(es_productivo ~ age + gender + job_type + daily_social_media_time + social_platform_preference + number_of_notifications + work_hours_per_day + stress_level + sleep_hours + screen_time_before_sleep + days_feeling_burnout_per_month + weekly_offline_hours + job_satisfaction_score+ perceived_productivity_score,
+  tree <- rpart(es_productivo ~ age + perceived_productivity_score + daily_social_media_time + work_hours_per_day + stress_level + has_digital_wellbeing_enabled + job_satisfaction_score,,
                 data = train_data, 
                 method = "class",
                 maxdepth = max_depth,
@@ -287,7 +306,7 @@ randSearch <- function(train, valid, maxdepth_hasta, minsplit_hasta, minbucket_h
 Realizada la random search, graficamos la relación de cada una de los hiperparámetros con el AUC del árbol.
 
 ```{r , echo=FALSE}
-res <- randSearch(train,valid,30,40,40,20)
+res <- randSearch(train,valid,30,40,40,50)
 res
 ```
 
@@ -342,7 +361,7 @@ plot(res$minbucket, res$AUC,
 
 
 opt_model <-function(train, valid){ 
-  resultados <- randSearch(train,valid,30,40,40,20)
+  resultados <- randSearch(train,valid,30,40,40,50)
   resultados <- resultados[order(resultados$AUC, decreasing = TRUE), ] # ordeno los resultados de forma desc, osea, el max auc esta en la primera fila 
   
   mejor_auc <- resultados$AUC[1]
@@ -389,11 +408,33 @@ plot(
 ```
 
 ```{r}
-rpart.plot(mejor_arbol)
+rpart.plot(mejor_arbol, roundint = FALSE)
 
 ```
 
-# Análisis del impacto de etiquetas corruptas
+
+
+
+
+# 5. Interpretacion de resultados
+
+Como dejamos el cp y xval en 0, cp va a dejar que el arbol cresca sin restriccion de la complexidad, y como el xval no vamos a hacer cross validation lo que significa que no va a 
+
+
+```{r , echo=FALSE}
+# Variables importantes para el arbol base
+tree$variable.importance
+# Variables importantes para el arbol optimizado 
+mejor_arbol$variable.importance
+```
+En el arbol base las varibales más importantes son la productividad persivida y la satisfacción con el trabajo. Mientras que con el arbol optimizado podemos ver que las variables mas importantes son los dos ya mencionados, pero tambien esta el tipo de trabajo, las horas de trabajo por dia y las horas offline del fin de semana. Con esto podemos decir que el arbol puede ver mas la importancia de las otras variables. Ademas de las variables que se repiten, para el arbol optimizado los valores aumentaron.
+
+
+
+
+
+
+# 6. Análisis del impacto de etiquetas corruptas
 
 ```{r}
 
@@ -417,7 +458,7 @@ corromper <- function(train, p) {
 
 ```{r}
 resultados_aucs <- list()
-
+set.seed(22)
 porcent <- c(0.05,0.1,0.15,0.2,0.25,0.3)
 
 for (p in porcent) {
