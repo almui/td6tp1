@@ -323,6 +323,11 @@ plot(res$maxdepth,res$AUC,
      col = "blue", 
      pch = 19)  
 ```
+En el gráfico se observa la relación entre la métrica AUC-ROC y max_depth. A medida que la profundidad aumenta desde valores bajos (1 a 5), el rendimiento del modelo mejora de forma notable, alcanzando valores de AUC cercanos a 0.97. A partir de ese punto, el AUC se mantiene relativamente estable en niveles altos, aunque se presentan algunas caídas puntuales (como en profundidad 16 y 28) que podrían deberse a variaciones propias del muestreo aleatorio o a overfitting.
+
+En general, el modelo parece alcanzar un buen equilibrio de desempeño con profundidades intermedias (entre 6 y 15), sin que profundidades mayores generen mejoras consistentes. Esto sugiere que profundizar demasiado el árbol no aporta beneficios claros y puede incluso introducir inestabilidad.
+
+
 ```{r , echo=FALSE}
   res <- res[order(res$minsplit, decreasing = FALSE), ] 
 res
@@ -333,11 +338,15 @@ res
 plot(res$minsplit, res$AUC,
      type = "o",
      main = "AUC-ROC - minsplit", 
-     ylab = "minsplit", 
-     xlab = "AUC", 
+     ylab = "AUC", 
+     xlab = "minsplit", 
      col = "red", 
      pch = 19)  
 ```
+Este gráfico muestra la relación entre el parámetro minsplit y el desempeño medido con AUC-ROC. Se observa que en la mayoría de los valores de minsplit el modelo alcanza niveles de AUC muy altos (entre 0.96 y 0.97 aproximadamente), lo que indica que el rendimiento es bastante estable. Sin embargo, existen algunos valores puntuales de minsplit que generan caídas fuertes en el AUC (por ejemplo, alrededor de 2, 11–13 y 34), lo que sugiere que en esos casos el árbol se construye con divisiones poco adecuadas y se reduce la capacidad predictiva.
+
+En general, podemos decir que el parámetro minsplit no parece tener un efecto fuerte sobre el desempeño, salvo en esos valores específicos donde provoca inestabilidad. Por lo tanto, sería razonable elegir un rango medio de minsplit para evitar esas caídas y mantener el AUC en valores cercanos al óptimo.
+
 ```{r , echo=FALSE}
   res <- res[order(res$minbucket, decreasing = FALSE), ] 
 res
@@ -348,11 +357,18 @@ res
 plot(res$minbucket, res$AUC,
      type = "o",
      main = "AUC-ROC - minbucket", 
-     ylab = "minbucket", 
-     xlab = "AUC", 
+     ylab = "AUC", 
+     xlab = "minbucket", 
      col = "orange", 
      pch = 19)  
 ```
+En el gráfico se observa la relación entre el hiperparámetro minbucket y el desempeño medido con AUC-ROC. El rendimiento del modelo se mantiene en valores muy altos (aproximadamente 0.96) para la mayoría de los valores de minbucket, mostrando estabilidad y robustez. Sin embargo, al igual que en los otros parámetros, existen valores puntuales que generan caídas marcadas en el AUC, especialmente en los extremos y en algunos valores bajos, lo cual refleja que configuraciones demasiado restrictivas o demasiado permisivas en el tamaño mínimo de los nodos pueden afectar negativamente la capacidad predictiva.
+
+
+
+# Conclusion general de los graficos 
+
+Al analizar en conjunto los tres parámetros (minsplit, maxdepth y minbucket), podemos concluir que el modelo alcanza niveles de desempeño muy altos y relativamente estables para un rango amplio de valores. Esto indica que el modelo es robusto frente a variaciones moderadas en la configuración de hiperparámetros. Sin embargo, en los tres casos se identifican ciertos valores específicos que generan caídas significativas en el AUC, lo que sugiere la importancia de evitar extremos o combinaciones poco equilibradas. En general, se recomienda optar por valores intermedios de los parámetros para garantizar una buena estabilidad y capacidad predictiva.
 
 ## Mejor rendimiento
 
@@ -402,9 +418,13 @@ plot(
   col = "blue",
   lwd = 2,
   main = paste("Curva ROC - AUC:", round(auc(roc_obj), 3)),
-  legacy.axes = TRUE # esto cambia la escala a 0 a 1
+  legacy.axes = TRUE,
+  xlab = "False Positive Rate (FPR)",
+  ylab = "True Positive Rate (TPR)"
 )
 ```
+La curva ROC muestra un desempeño sobresaliente del modelo, con un AUC de 0.977, muy cercano a 1. Esto indica que tiene una excelente capacidad para discriminar entre observaciones positivas y negativas. La curva se eleva rápidamente, lo cual refleja una alta tasa de  positivos verdaderos (TPR) incluso con bajos niveles de falsos positivos (FPR). En términos prácticos, el modelo logra una clasificación muy precisa, minimizando tanto los errores de tipo I como los de tipo II.
+
 
 ```{r}
 rpart.plot(mejor_arbol, roundint = FALSE)
@@ -417,6 +437,8 @@ rpart.plot(mejor_arbol, roundint = FALSE)
 
 # 5. Interpretacion de resultados
 
+El árbol de decisión muestra que la variable más importante para predecir si alguien es productivo es el perceived_productivity_score, ya que aparece en la raíz y en varios niveles del árbol. En segundo lugar, también se destaca el job_satisfaction_score, que ayuda a separar los casos en distintos grupos. Otras variables que tienen influencia son las work_hours_per_day y el daily_social_media_time, aunque aparecen más en ramas específicas. Finalmente, el stress_level tiene un peso menor, pero aporta información en algunos nodos. En resumen, la productividad percibida y la satisfacción laboral son las variables principales, mientras que las demás variables suman detalles que mejoran la clasificación en ciertos casos.
+
 Como dejamos el cp y xval en 0, cp va a dejar que el arbol cresca sin restriccion de la complexidad lo cual hace que el arbol optimizado se vea mas profundo que el arbol base, y como el xval no vamos a hacer cross validation lo que tiene sentido porque ya tenemos un conjunto de validacion entonces no es necesario.
 Al compararlo con el arbol del punto 3, podemos ver que es más profundo y se amplia más, esto se debe a que cambiamos los valores default que restringian el modelo.
 
@@ -426,9 +448,11 @@ tree$variable.importance
 # Variables importantes para el arbol optimizado 
 mejor_arbol$variable.importance
 ```
-En el arbol base las varibales más importantes son la productividad persivida y la satisfacción con el trabajo. Mientras que con el arbol optimizado podemos ver que las variables mas importantes son los dos ya mencionados, pero tambien esta el tipo de trabajo, las horas de trabajo por dia y las horas offline del fin de semana. Con esto podemos decir que el arbol puede ver mas la importancia de las otras variables. Ademas de las variables que se repiten, para el arbol optimizado los valores aumentaron.
+En el arbol base las varibales más importantes son la productividad percivida y la satisfacción con el trabajo. Mientras que con el arbol optimizado podemos ver que las variables mas importantes son los dos ya mencionados, pero tambien esta el tipo de trabajo, las horas de trabajo por dia y las horas offline del fin de semana. Con esto podemos decir que el arbol puede ver mas la importancia de las otras variables. Ademas de las variables que se repiten, para el arbol optimizado los valores aumentaron.
 
+El árbol inicial sin optimizar era muy simple: solo usaba la variable perceived_productivity_score para dividir los casos. Si el valor era menor a 5.65, la mayoría se clasificaba como “NO productivo”, y si era mayor o igual, se clasificaba como “SÍ productivo”. Esto hacía que el árbol sea fácil de interpretar, pero dejaba afuera mucha información de las demás variables.
 
+En cambio, el árbol optimizado final es más complejo y aprovecha otras variables, como el job_satisfaction_score, las work_hours_per_day y el daily_social_media_time, lo que le permite separar mejor los casos. Gracias a eso, el modelo logra una clasificación más precisa y un mejor ajuste, ya que no depende solo de una variable.
 
 
 
