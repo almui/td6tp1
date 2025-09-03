@@ -4,8 +4,8 @@ output:
   html_document:
     df_print: paged
 ---
-
-# Introducción al problema
+Integrantes: Alarcon, Mironov y Tagle Zorraquin
+# 1. Introducción al problema
 
 En este trabajo exploramos el link entre diversos factores como el uso de redes sociales, el estres, el sueno, etc en la productividad. Es una simulacion obtenida de kaggle (<https://www.kaggle.com/datasets/mahdimashayekhi/social-media-vs-productivity/data>) de 30000 observaciones, con 18 variables predictoras, tanto numericas (numero de notificaciones, horas trabajadas, horas en redes, etc) como categoricas (genero, red social preferida, tipo de trabajo,etc). Intentamos predecir si una persona fue productiva o no basado en estos factores, transformando una variable numerica en binario (actual_productivity_score \> 5.0). Para predecirla empezamos con un arbol naive, y luego entrenamos los hiperparametros para optimizarlo.
 
@@ -13,7 +13,7 @@ En este trabajo exploramos el link entre diversos factores como el uso de redes 
 
 # 2. Preparación de los datos
 
-## **Subir el dataset**
+## **Dataset**
 
 ```{r }
 datos <- read.csv("social_media_vs_productivity.csv")
@@ -50,8 +50,20 @@ datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.0, "
 str(datos)
 
 ```
+Se convierten estas variables en factores porque representan categorías y no valores numéricos continuos. De esta forma, R las interpreta correctamente como cualitativas al momento de analizarlas o usarlas en un modelo. Esto evita que el algoritmo las trate como números con un orden o magnitud inexistente.
+```{r}
 
-## Analisis estadistico
+datos$has_digital_wellbeing_enabled<-as.factor(datos$has_digital_wellbeing_enabled)
+datos$gender  <- as.factor(datos$gender)
+datos$job_type <- as.factor(datos$job_type)
+datos$social_platform_preference <- as.factor(datos$social_platform_preference)
+datos$uses_focus_apps <- as.factor(datos$uses_focus_apps)
+
+datos$es_productivo <- as.factor(datos$es_productivo)
+
+
+```
+## **Analisis estadistico**
 
 ### **Variables cuantitativas**
 
@@ -67,6 +79,7 @@ var(datos$stress_level)
 var(datos$job_satisfaction_score)
 var(datos$age)
 ```
+Las varianzas que dan como resultado NA es porque en esa variable hay valores missings
 
 ### **Variables Binarias**
 Para las variables binarias hacemos tablas de frecuencia. En el caso de la variable has_digital_wellbeing_enabled se ve la cantidad de personas que tienen activada esta funcionalidad mientras que la otra variable se ve la cantidad de personas que son productivos.
@@ -91,12 +104,12 @@ El histograma muestra la distribución del puntaje de productividad real de los 
 Hacemos graficos de dispersion para ver las distintas relaciones entre algunas de las variables importantes
 ```{r}
 
-plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="Productividad Real",xlab="Productividad Percivida",main="", xlim=c(0, 9), ylim=c(0, 11))
-plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="Productividad real",xlab="Horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
-plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
-plot(datos$sleep_hours, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de suenio",main="", xlim=c(3, 10), ylim=c(0, 11))
+plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="Productividad Real",xlab="Productividad Percivida",main="", xlim=c(0, 9), ylim=c(0, 11), col="skyblue")
+plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="Productividad real",xlab="Horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11), col="pink")
+plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11),col="orange")
+plot(datos$sleep_hours, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de suenio",main="", xlim=c(3, 10), ylim=c(0, 11), col="purple")
 
-````
+```
 
 En los gráficos se observan diferentes factores asociados a la productividad real. En el primer gráfico, la productividad percibida muestra una relación positiva y bastante clara con la productividad real, lo que indica que quienes creen ser más productivos, en general, efectivamente lo son. 
 
@@ -114,29 +127,23 @@ Finalmente, en el cuarto gráfico, las horas de sueño presentan también una di
 # 3. Construcción de un árbol de decisión básico
 
 Hacemos la division de los datos con las proporciones correspondientes en los 3 conjuntos distintos, el conjunto de training, de testing y de validation. Seteamos una semilla para asegurar la replicabilidad.
+
 ```{r}
 set.seed(22)  # Semilla para que siempre salga igual si volvés a correrlo
 
 datos <- subset(datos, select = -actual_productivity_score)
 
-
-
 n <- nrow(datos)
-
-# Mezclar aleatoriamente los índices
 indices <- sample(1:n)
 
-# Proporciones
 n_train <- round(0.70 * n)
 n_valid <- round(0.15 * n)
 n_test  <- n - n_train - n_valid  # lo que quede
 
-# Particiones
 train_indices <- indices[1:n_train]
 valid_indices <- indices[(n_train + 1):(n_train + n_valid)]
 test_indices  <- indices[(n_train + n_valid + 1):n]
 
-# Subsets finales
 train <- datos[train_indices, ]
 valid <- datos[valid_indices, ]
 test  <- datos[test_indices, ]
@@ -144,19 +151,7 @@ test  <- datos[test_indices, ]
 
 ```
 
-Se convierten estas variables en factores porque representan categorías y no valores numéricos continuos. De esta forma, R las interpreta correctamente como cualitativas al momento de analizarlas o usarlas en un modelo. Esto evita que el algoritmo las trate como números con un orden o magnitud inexistente.
-```{r}
 
-train$has_digital_wellbeing_enabled<-as.factor(train$has_digital_wellbeing_enabled)
-train$gender  <- as.factor(train$gender)
-train$job_type <- as.factor(train$job_type)
-train$social_platform_preference <- as.factor(train$social_platform_preference)
-train$uses_focus_apps <- as.factor(train$uses_focus_apps)
-# Convertir a factor
-train$es_productivo <- factor(train$es_productivo)
-test$es_productivo  <- factor(test$es_productivo)
-
-```
 
 ```{r}
 train
@@ -202,16 +197,6 @@ El árbol de decisión entrenado con las variables seleccionadas muestra que la 
 
 # 4. Evaluación del árbol de decisión básico
 
-```{r}
-
-test$has_digital_wellbeing_enabled<-as.factor(test$has_digital_wellbeing_enabled)
-test$gender  <- as.factor(test$gender)
-test$job_type <- as.factor(test$job_type)
-test$social_platform_preference <- as.factor(test$social_platform_preference)
-test$uses_focus_apps <- as.factor(test$uses_focus_apps)
-
-```
-
 Hacemos las predicciones en el conjunto de testeo, calculando las probabilidades predichas y las clases predichas
 ```{r}
 
@@ -221,7 +206,7 @@ predictions_class <- predict(tree, newdata = test, type="class")
 
 ```{r}
 
-predictions_prob
+# predictions_prob
 
 ```
 
@@ -308,7 +293,6 @@ res
 
 ```{r , echo=FALSE}
   res <- res[order(res$maxdepth, decreasing = FALSE), ] 
-res
 ```
 
 ```{r , echo=FALSE}
@@ -327,7 +311,6 @@ En general, el modelo parece alcanzar un buen equilibrio de desempeño con profu
 
 ```{r , echo=FALSE}
   res <- res[order(res$minsplit, decreasing = FALSE), ] 
-res
 ```
 
 ```{r , echo=FALSE}
@@ -346,7 +329,7 @@ En general, podemos decir que el parámetro minsplit no parece tener un efecto f
 
 ```{r , echo=FALSE}
   res <- res[order(res$minbucket, decreasing = FALSE), ] 
-res
+
 ```
 
 ```{r , echo=FALSE}
@@ -401,7 +384,8 @@ El AUC-ROC despues de probar el conjunto de entrenamiento con el nuevo modelo:
 ```{r , echo=TRUE}
 mejor_auc
 ```
-```{r}
+Graficamos la AUC-ROC
+```{r, echo=FALSE}
 library(pROC)
 
 # Generamos predicciones de probabilidad sobre el set de test
@@ -414,7 +398,7 @@ plot(
   roc_obj,
   col = "blue",
   lwd = 2,
-  main = paste("Curva ROC - AUC:", round(auc(roc_obj), 3)),
+  main = paste("Curva AUC-ROC:", round(auc(roc_obj), 3)),
   legacy.axes = TRUE,
   xlab = "False Positive Rate (FPR)",
   ylab = "True Positive Rate (TPR)"
@@ -498,7 +482,7 @@ desv_std_aucs_total <- c(0, desv_std_aucs) # Desviación estándar es 0 para el 
 
 ```
 
-```{r}
+```{r, echo=FALSE}
 # Crear un dataframe para el gráfico con ggplot2
 df_plot <- data.frame(
   porcentaje_corrupta = total,
@@ -507,11 +491,11 @@ df_plot <- data.frame(
 )
 df_plot
 ```
-```{r}
+```{r, echo=FALSE}
 library(ggplot2)
 # Graficar los resultados
 ggplot(df_plot, aes(x = porcentaje_corrupta, y = media_auc)) +
-  geom_line(color = "blue", size = 1.2) +
+  geom_line(color = "blue", linewidth = 1.2) +
   geom_point(color = "blue", size = 3) +
   geom_errorbar(aes(ymin = media_auc - desv_std, ymax = media_auc + desv_std),
                 width = 0.01, color = "red") +
@@ -519,16 +503,11 @@ ggplot(df_plot, aes(x = porcentaje_corrupta, y = media_auc)) +
        title = "AUC promedio con Desvio estandar") +
   theme_minimal()
 ```
-La corrupción de obervaciones muestra que la performance disminuye a medida que aumenta el porcentaje de etiquetas corruptas, pero no de manera estrictamente lineal. El modelo es robusto hasta cierto punto de ruido (hasta un 10%), con AUC solo ligeramente inferior al máximo de 0.976. A medida que aumenta el porcentaje de etiquetas corruptas, el desempeño disminuye, alcanzando AUC alrededor de 0.96–0.97 para corrupciones del 20–30%, mostrando la mayor desviacion con la corrupcioin del 20%. Las pequeñas subidas y bajadas observadas entre porcentajes consecutivos reflejan la aleatoriedad de la selección de observaciones corruptas, que en algunas iteraciones altera menos en los valores mas importante del modelo. .
+La corrupción de obervaciones muestra que la performance disminuye a medida que aumenta el porcentaje de etiquetas corruptas, pero no de manera estrictamente lineal. El modelo es robusto hasta cierto punto de ruido (hasta un 10%), con AUC solo ligeramente inferior al máximo de 0.976. A medida que aumenta el porcentaje de etiquetas corruptas, el desempeño disminuye, alcanzando AUC alrededor de 0.96–0.97 para corrupciones del 20–30%, mostrando la mayor desviacion con la corrupcioin del 20%. Las pequeñas subidas y bajadas observadas entre porcentajes consecutivos reflejan la aleatoriedad de la selección de observaciones corruptas, que en algunas iteraciones altera menos en los valores mas importante del modelo.
 
-# Conclusion 
-- Resumir los hallazgos principales del análisis.
-- Reflexionar sobre la efectividad del árbol de decisión para el problema planteado.
-- Sugerir posibles mejoras o direcciones futuras para el análisis.
-En este trabajo se exploramos la relación entre múltiples variables, como el uso de redes sociales, horas de sueño, nivel de estrés, satisfacción laboral y horas trabajadas, sobre la productividad de las personas. El análisis reveló que la productividad percibida y la satisfacción laboral son las variables con mayor importancia sobre la productividad real, mientras que otros factores, como el tiempo en redes sociales o las horas de trabajo, presentan relaciones menos importantes que las anteriores.
+# 7. Conclusión 
+En este trabajo se exploramos la relación entre múltiples variables, como el uso de redes sociales, horas de sueño, nivel de estrés, satisfacción laboral y horas trabajadas, sobre la productividad de las personas. El análisis reveló que la productividad percibida y la satisfacción laboral son las variables con mayor importancia para predecir la productividad real, mientras que otros factores, como el tiempo en redes sociales o las horas de trabajo, presentan relaciones menos importantes que las anteriores pero valen la pena mencionarlas.
 
-El árbol de decisión, tanto en su versión básica como optimizada, demostró ser una herramienta muy efectiva para clasificar individuos productivos y no productivos. El árbol inicial identificó de manera clara que la productividad percibida es la variable más determinante. La optimización de hiperparámetros permitió incorporar otras variables relevantes, como satisfacción laboral, horas de trabajo y tiempo en redes sociales, mejorando la capacidad predictiva del modelo. El desempeño del árbol optimizado aumento en un 4.6% el AUC-ROC de su version basica.
+El árbol de decisión, tanto en su versión básica como optimizada, demostró ser una buena herramienta para clasificar a las personas como productivos y no productivos. El árbol inicial identificó de manera clara que la productividad percibida es la variable más determinante, una variable que es posible tenerla por el dataset que usamos. La optimización de hiperparámetros permitió incorporar otras variables relevantes y más objetivas que la anterior, como satisfacción laboral, horas de trabajo y tiempo en redes sociales, con esto mejoró la capacidad predictiva del modelo. El desempeño del árbol optimizado aumento en un 4.6% el AUC-ROC de su version basica.
 
-Aunque los resultaron fueron muy buenos, es importante destacar que el dataset es sintético, lo que reduce la complejidad y el ruido comparado con datos reales. Por lo tanto, estos numeros podrían variar en escenarios reales. Para mejorar el análisis, se podrían explorar otros modelos para conpararlos con el resultado del arbol de decision, realizar validación cruzada más exhaustiva.
-
-En resumen, los árboles de decisión resultaron ser herramientas interpretables y efectivas para este problema, capaces de identificar las variables clave que influyen en la productividad.
+Aunque los resultaron fueron muy buenos, es importante destacar que el dataset es sintético, lo que reduce la complejidad y el ruido comparado con datos reales. Por lo tanto, estos numeros podrían variar en escenarios reales. Para mejorar el análisis, se podrían explorar otros modelos para conpararlos con el resultado del arbol de decision.
