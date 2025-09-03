@@ -31,7 +31,7 @@ En el caso para la variable objetivo actual_productivity_score, se eliminaron la
 
 En cambio, para el caso de las demas variables los valores faltantes se dejaron tal cual, ya que estamos utilizando un árbol de decisión, el cual puede manejar NA de forma nativa.
 
-Además, los valores de actual_productivity_score y perceived_productivity_score se redondearon para transformarlos en variables categóricas, y se creó una nueva columna que indica de manera más clara quién es productivo y quién no.
+Además, creamos una nueva columna, la cual sera nuestra variable binaria a predecir, que indica si la persona es productivo ó no dependiendo si su productividad es mayór a 5.
 
 ```{r}
 
@@ -41,17 +41,7 @@ table(is.na(datos))
 ```
 
 ```{r}
-# Redondeamos los parametros importantes
 
-datos$stress_level <- as.integer(datos$stress_level)
-datos$actual_productivity_score <- round(datos$actual_productivity_score, digits = 1)
-datos$perceived_productivity_score <-round(datos$perceived_productivity_score, digits = 1)
-datos$work_hours_per_day <- round(datos$work_hours_per_day, digits = 1)
-datos$job_satisfaction_score <- round(datos$job_satisfaction_score , digits = 1)
-datos$daily_social_media_time<- round(datos$daily_social_media_time, digits = 1)
-datos$sleep_hours<- round(datos$sleep_hours, digits = 1)
-datos$screen_time_before_sleep<- round(datos$screen_time_before_sleep, digits = 1)
-datos$weekly_offline_hours<- round(datos$weekly_offline_hours, digits = 1)
 # Agregamos una nueva columna que diga si fue productivo o no, es productivo si la productividad actual es mayor a 5
 library(dplyr)
 
@@ -91,7 +81,7 @@ table(datos$es_productivo)
 prop.table(table(datos$es_productivo))
 ```
 
-## Graficos\*\*
+## **Graficos**
 
 ```{r}
 hist(datos$actual_productivity_score,main="Productividad real", col="skyblue")
@@ -104,9 +94,9 @@ Hacemos graficos de dispersion para ver las distintas relaciones entre algunas d
 plot(datos$perceived_productivity_score, datos$actual_productivity_score, ylab="Productividad Real",xlab="Productividad Percivida",main="", xlim=c(0, 9), ylim=c(0, 11))
 plot(datos$daily_social_media_time, datos$actual_productivity_score, ylab="Productividad real",xlab="Horas en las redes sociales",main="", xlim=c(0, 18), ylim=c(0, 11))
 plot(datos$work_hours_per_day, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de trabajo",main="", xlim=c(0, 13), ylim=c(0, 11))
-plot(datos$sleep_hours, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de sueño",main="", xlim=c(3, 10), ylim=c(0, 11))
+plot(datos$sleep_hours, datos$actual_productivity_score, ylab="Productividad real", xlab="Horas de suenio",main="", xlim=c(3, 10), ylim=c(0, 11))
 
-```
+````
 
 En los gráficos se observan diferentes factores asociados a la productividad real. En el primer gráfico, la productividad percibida muestra una relación positiva y bastante clara con la productividad real, lo que indica que quienes creen ser más productivos, en general, efectivamente lo son. 
 
@@ -172,7 +162,14 @@ test$es_productivo  <- factor(test$es_productivo)
 train
 ```
 
-## Entrenar el modelo
+## Contrucción del árbol basico
+Dejamos los hiperparametros por defecto, eston son:
+
+- maxdepth = 30 implica que el árbol no puede tener más de 30 niveles.
+- minsplit = 20 implica que un nodo debe tener al menos 20 casos para dividirse.
+- minbucket = 7 implica que cada hoja terminal debe tener al menos 7 observaciones.
+- cp = 0.01 implica que una división se acepta solo si mejora el ajuste en un 1%.
+- xval = 10 implica que se hace cross validation de 10 particiones para estimar error y podar el árbol.
 
 ```{r}
 library(rpart)
@@ -195,7 +192,7 @@ library(rpart.plot)
 rpart.plot(tree)
 
 ```
-El árbol de decisión entrenado con las variables seleccionadas muestra que la más influyente para predecir si una persona es productiva o no es el perceived_productivity_score. El modelo establece un umbral en 5.7: cuando el puntaje de productividad percibida es menor a 5.7, la mayoría de los casos se clasifican como no productivos (52%). En cambio, cuando el puntaje es mayor o igual a 5.7, la predicción se inclina fuertemente hacia si productivo, concentrando el 48% de los casos. Esto indica que, a pesar de haber considerado variables como edad, tiempo en redes sociales, horas de trabajo, nivel de estrés, satisfacción laboral y uso de bienestar digital, el árbol decidió que la única variable relevante en la primera división es la productividad percibida (Debido a que la variable a predecir fue armada en base a los valores de actual_productivity_score, se decidio no inncluir esta en el entrenamiento del modelo, ya que si no el arbol solo depende de esta variable y seria un caso de data leakage). En otras palabras, el modelo encontró que este puntaje es el factor más determinante para distinguir entre personas productivas y no productivas en el conjunto de datos.
+El árbol de decisión entrenado con las variables seleccionadas muestra que la más influyente para predecir si una persona es productiva o no es el perceived_productivity_score. El modelo establece un umbral en 5.6: cuando el puntaje de productividad percibida es menor a 5.6, la mayoría de los casos se clasifican como no productivos (51%). En cambio, cuando el puntaje es mayor o igual a 5.6, la predicción se inclina fuertemente hacia si productivo, concentrando el 49% de los casos. Esto indica que, a pesar de haber considerado variables como edad, tiempo en redes sociales, horas de trabajo, nivel de estrés, satisfacción laboral y uso de bienestar digital, el árbol decidió que la única variable relevante en la primera división es la productividad percibida (Debido a que la variable a predecir fue armada en base a los valores de actual_productivity_score, se decidio no inncluir esta en el entrenamiento del modelo, ya que si no el arbol solo depende de esta variable y seria un caso de data leakage). En otras palabras, el modelo encontró que este puntaje es el factor más determinante para distinguir entre personas productivas y no productivas en el conjunto de datos.
 
 
 
@@ -343,7 +340,7 @@ plot(res$minsplit, res$AUC,
      col = "red", 
      pch = 19)  
 ```
-Este gráfico muestra la relación entre el parámetro minsplit y el desempeño medido con AUC-ROC. Se observa que en la mayoría de los valores de minsplit el modelo alcanza niveles de AUC muy altos (entre 0.96 y 0.97 aproximadamente), lo que indica que el rendimiento es bastante estable. Sin embargo, existen algunos valores puntuales de minsplit que generan caídas fuertes en el AUC (por ejemplo, alrededor de 2, 11–13 y 34), lo que sugiere que en esos casos el árbol se construye con divisiones poco adecuadas y se reduce la capacidad predictiva.
+Este gráfico muestra la relación entre el parámetro minsplit y el desempeño medido con AUC-ROC. Se observa que en la mayoría de los valores de minsplit el modelo alcanza niveles de AUC muy altos (entre 0.96 y 0.98 aproximadamente), lo que indica que el rendimiento es bastante estable. Sin embargo, existen algunos valores puntuales de minsplit que generan caídas fuertes en el AUC (por ejemplo, alrededor de 4, 11–13 y 34), lo que sugiere que en esos casos el árbol se construye con divisiones poco adecuadas y se reduce la capacidad predictiva.
 
 En general, podemos decir que el parámetro minsplit no parece tener un efecto fuerte sobre el desempeño, salvo en esos valores específicos donde provoca inestabilidad. Por lo tanto, sería razonable elegir un rango medio de minsplit para evitar esas caídas y mantener el AUC en valores cercanos al óptimo.
 
@@ -362,7 +359,7 @@ plot(res$minbucket, res$AUC,
      col = "orange", 
      pch = 19)  
 ```
-En el gráfico se observa la relación entre el hiperparámetro minbucket y el desempeño medido con AUC-ROC. El rendimiento del modelo se mantiene en valores muy altos (aproximadamente 0.96) para la mayoría de los valores de minbucket, mostrando estabilidad y robustez. Sin embargo, al igual que en los otros parámetros, existen valores puntuales que generan caídas marcadas en el AUC, especialmente en los extremos y en algunos valores bajos, lo cual refleja que configuraciones demasiado restrictivas o demasiado permisivas en el tamaño mínimo de los nodos pueden afectar negativamente la capacidad predictiva.
+En el gráfico se observa la relación entre el hiperparámetro minbucket y el desempeño medido con AUC-ROC. El rendimiento del modelo se mantiene en valores muy altos (aproximadamente 0.97) para la mayoría de los valores de minbucket, mostrando estabilidad y robustez. Sin embargo, al igual que en los otros parámetros, existen valores puntuales que generan caídas marcadas en el AUC, especialmente en los extremos y en algunos valores bajos, lo cual refleja que configuraciones demasiado restrictivas o demasiado permisivas en el tamaño mínimo de los nodos pueden afectar negativamente la capacidad predictiva.
 
 
 
@@ -423,7 +420,7 @@ plot(
   ylab = "True Positive Rate (TPR)"
 )
 ```
-La curva ROC muestra un desempeño sobresaliente del modelo, con un AUC de 0.977, muy cercano a 1. Esto indica que tiene una excelente capacidad para discriminar entre observaciones positivas y negativas. La curva se eleva rápidamente, lo cual refleja una alta tasa de  positivos verdaderos (TPR) incluso con bajos niveles de falsos positivos (FPR). En términos prácticos, el modelo logra una clasificación muy precisa, minimizando tanto los errores de tipo I como los de tipo II.
+La curva ROC muestra un desempeño sobresaliente del modelo, con un AUC de 0.976, muy cercano a 1. Esto indica que tiene una excelente capacidad para discriminar entre observaciones positivas y negativas. La curva se eleva rápidamente, lo cual refleja una alta tasa de  positivos verdaderos (TPR) incluso con bajos niveles de falsos positivos (FPR). En términos prácticos, el modelo logra una clasificación muy precisa, minimizando tanto los errores de tipo I como los de tipo II.
 
 
 ```{r}
@@ -448,11 +445,9 @@ tree$variable.importance
 # Variables importantes para el arbol optimizado 
 mejor_arbol$variable.importance
 ```
-En el arbol base las varibales más importantes son la productividad percivida y la satisfacción con el trabajo. Mientras que con el arbol optimizado podemos ver que las variables mas importantes son los dos ya mencionados, pero tambien esta el tipo de trabajo, las horas de trabajo por dia y las horas offline del fin de semana. Con esto podemos decir que el arbol puede ver mas la importancia de las otras variables. Ademas de las variables que se repiten, para el arbol optimizado los valores aumentaron.
+El árbol inicial sin optimizar era muy simple: solo usaba la variable perceived_productivity_score para dividir los casos. Si el valor era menor a 5.6, la mayoría se clasificaba como “NO productivo”, y si era mayor o igual, se clasificaba como “SÍ productivo”. Esto hacía que el árbol sea fácil de interpretar, pero dejaba afuera mucha información de las demás variables.
 
-El árbol inicial sin optimizar era muy simple: solo usaba la variable perceived_productivity_score para dividir los casos. Si el valor era menor a 5.65, la mayoría se clasificaba como “NO productivo”, y si era mayor o igual, se clasificaba como “SÍ productivo”. Esto hacía que el árbol sea fácil de interpretar, pero dejaba afuera mucha información de las demás variables.
-
-En cambio, el árbol optimizado final es más complejo y aprovecha otras variables, como el job_satisfaction_score, las work_hours_per_day y el daily_social_media_time, lo que le permite separar mejor los casos. Gracias a eso, el modelo logra una clasificación más precisa y un mejor ajuste, ya que no depende solo de una variable.
+En cambio, el árbol optimizado final es más complejo y aprovecha otras variables, como el job_satisfaction_score, las work_hours_per_day y el daily_social_media_time, lo que le permite separar mejor los casos. Gracias a eso, el modelo logra una clasificación más precisa y un mejor ajuste, ya que no depende solo de una variable. Ademas que aumente la importancia de las variables que aparecian en el primer árbol.
 
 
 
@@ -510,7 +505,9 @@ df_plot <- data.frame(
   media_auc = medias_aucs_total,
   desv_std = desv_std_aucs_total
 )
-
+df_plot
+```
+```{r}
 library(ggplot2)
 # Graficar los resultados
 ggplot(df_plot, aes(x = porcentaje_corrupta, y = media_auc)) +
@@ -518,12 +515,20 @@ ggplot(df_plot, aes(x = porcentaje_corrupta, y = media_auc)) +
   geom_point(color = "blue", size = 3) +
   geom_errorbar(aes(ymin = media_auc - desv_std, ymax = media_auc + desv_std),
                 width = 0.01, color = "red") +
-  labs(x = "Porcentaje de Corrupción", y = "AUC promedio",
+  labs(x = "Porcentaje de Corrupcion", y = "AUC promedio",
        title = "AUC promedio con Desvio estandar") +
   theme_minimal()
 ```
+La corrupción de obervaciones muestra que la performance disminuye a medida que aumenta el porcentaje de etiquetas corruptas, pero no de manera estrictamente lineal. El modelo es robusto hasta cierto punto de ruido (hasta un 10%), con AUC solo ligeramente inferior al máximo de 0.976. A medida que aumenta el porcentaje de etiquetas corruptas, el desempeño disminuye, alcanzando AUC alrededor de 0.96–0.97 para corrupciones del 20–30%, mostrando la mayor desviacion con la corrupcioin del 20%. Las pequeñas subidas y bajadas observadas entre porcentajes consecutivos reflejan la aleatoriedad de la selección de observaciones corruptas, que en algunas iteraciones altera menos en los valores mas importante del modelo. .
+
 # Conclusion 
 - Resumir los hallazgos principales del análisis.
 - Reflexionar sobre la efectividad del árbol de decisión para el problema planteado.
 - Sugerir posibles mejoras o direcciones futuras para el análisis.
+En este trabajo se exploramos la relación entre múltiples variables, como el uso de redes sociales, horas de sueño, nivel de estrés, satisfacción laboral y horas trabajadas, sobre la productividad de las personas. El análisis reveló que la productividad percibida y la satisfacción laboral son las variables con mayor importancia sobre la productividad real, mientras que otros factores, como el tiempo en redes sociales o las horas de trabajo, presentan relaciones menos importantes que las anteriores.
 
+El árbol de decisión, tanto en su versión básica como optimizada, demostró ser una herramienta muy efectiva para clasificar individuos productivos y no productivos. El árbol inicial identificó de manera clara que la productividad percibida es la variable más determinante. La optimización de hiperparámetros permitió incorporar otras variables relevantes, como satisfacción laboral, horas de trabajo y tiempo en redes sociales, mejorando la capacidad predictiva del modelo. El desempeño del árbol optimizado aumento en un 4.6% el AUC-ROC de su version basica.
+
+Aunque los resultaron fueron muy buenos, es importante destacar que el dataset es sintético, lo que reduce la complejidad y el ruido comparado con datos reales. Por lo tanto, estos numeros podrían variar en escenarios reales. Para mejorar el análisis, se podrían explorar otros modelos para conpararlos con el resultado del arbol de decision, realizar validación cruzada más exhaustiva.
+
+En resumen, los árboles de decisión resultaron ser herramientas interpretables y efectivas para este problema, capaces de identificar las variables clave que influyen en la productividad.
