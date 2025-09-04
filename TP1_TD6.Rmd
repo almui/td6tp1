@@ -7,7 +7,7 @@ output:
 Integrantes: Alarcon, Mironov y Tagle Zorraquin
 # 1. Introducción al problema
 
-En este trabajo exploramos el link entre diversos factores como el uso de redes sociales, el estres, el sueno, etc en la productividad. Es una simulacion obtenida de kaggle (<https://www.kaggle.com/datasets/mahdimashayekhi/social-media-vs-productivity/data>) de 30000 observaciones, con 18 variables predictoras, tanto numericas (numero de notificaciones, horas trabajadas, horas en redes, etc) como categoricas (genero, red social preferida, tipo de trabajo,etc). Intentamos predecir si una persona fue productiva o no basado en estos factores, transformando una variable numerica en binario (actual_productivity_score \> 5.0). Para predecirla empezamos con un arbol naive, y luego entrenamos los hiperparametros para optimizarlo.
+En este trabajo exploramos el link entre diversos factores como el uso de redes sociales, el estres, el sueño, etc en la productividad. Es una simulacion obtenida de kaggle (<https://www.kaggle.com/datasets/mahdimashayekhi/social-media-vs-productivity/data>) de 30000 observaciones, con 18 variables predictoras, tanto numericas (numero de notificaciones, horas trabajadas, horas en redes, etc) como categoricas (genero, red social preferida, tipo de trabajo,etc). Intentamos predecir si una persona fue productiva o no basado en estos factores, transformando una variable numerica en binario (actual_productivity_score \> 5.0). Para predecirla empezamos con un arbol naive, y luego entrenamos los hiperparametros para optimizarlo.
 
 
 
@@ -50,7 +50,10 @@ datos <- mutate(datos, es_productivo = ifelse(actual_productivity_score > 5.0, "
 str(datos)
 
 ```
+
+
 Se convierten estas variables en factores porque representan categorías y no valores numéricos continuos. De esta forma, R las interpreta correctamente como cualitativas al momento de analizarlas o usarlas en un modelo. Esto evita que el algoritmo las trate como números con un orden o magnitud inexistente.
+
 ```{r}
 
 datos$has_digital_wellbeing_enabled<-as.factor(datos$has_digital_wellbeing_enabled)
@@ -79,7 +82,8 @@ var(datos$stress_level)
 var(datos$job_satisfaction_score)
 var(datos$age)
 ```
-Las varianzas que dan como resultado NA es porque en esa variable hay valores missings
+Las varianzas que dan como resultado NA es porque en esa variable hay valores missings y al intentar hacer calculos con NA el resultado siempre sera una NA al no saber su valor
+
 
 ### **Variables Binarias**
 Para las variables binarias hacemos tablas de frecuencia. En el caso de la variable has_digital_wellbeing_enabled se ve la cantidad de personas que tienen activada esta funcionalidad mientras que la otra variable se ve la cantidad de personas que son productivos.
@@ -206,13 +210,13 @@ predictions_class <- predict(tree, newdata = test, type="class")
 
 ```{r}
 
-# predictions_prob
+predictions_prob
 
 ```
 
-```{r}
 
-# Accuracy
+Calculamos las metricas de performance
+```{r}
 library(MLmetrics)
 
 Accuracy(y_pred = predictions_class, y_true = test$es_productivo)
@@ -233,10 +237,9 @@ Estos valores tan altos son coherentes con el hecho de que el dataset utilizado 
 
 
 
-
-
 # Optimización del modelo
 Usamos el random search para optimizar los hiperparametros, ya que esta funcion combina de forma aleatoria los valores de max_depth, min_split y min_bucket, en los rangos que le indiquemos, buscando optimizar el valor del AUC-ROC en cada iteracion.
+
 ```{r , echo=TRUE}
 
 train_tree <- function(train_data, max_depth, min_split, min_bucket){
@@ -380,10 +383,14 @@ auc_best_tree <- AUC(y_pred =prediccion[, "SI"],y_true = ifelse(test$es_producti
 mejor_arbol <- opt_model(train, valid)
 mejor_auc <-test_model(mejor_arbol, test)
 ```
+
+
 El AUC-ROC despues de probar el conjunto de entrenamiento con el nuevo modelo:
 ```{r , echo=TRUE}
 mejor_auc
 ```
+En la evaluación del modelo inicial, el área bajo la curva ROC (AUC) fue de 0.9307, lo cual reflejaba una buena capacidad de discriminación entre observaciones productivas y no productivas. Sin embargo, tras optimizar el árbol de decisión mediante la selección de hiperparámetros con random search, el valor del AUC se incrementó a 0.9764. Este resultado muestra una mejora significativa en el desempeño del modelo, indicando que el árbol optimizado logra distinguir con mayor precisión entre las clases en un rango más amplio de umbrales.
+
 Graficamos la AUC-ROC
 ```{r, echo=FALSE}
 library(pROC)
@@ -438,8 +445,8 @@ En cambio, el árbol optimizado final es más complejo y aprovecha otras variabl
 
 # 6. Análisis del impacto de etiquetas corruptas
 
+Hacemos una funcion auxiliar que toma como parametro el porcentaje de etiquetas a corromper y los datos
 ```{r}
-
 
 corromper <- function(train, p) {
   n <- nrow(train)
@@ -462,7 +469,7 @@ porcent <- c(0.05,0.1,0.15,0.2,0.25,0.3)
 
 for (p in porcent) {
   aucs_iteracion <- c()
-  for (i in 1:10) { # Bucle para 10 iteraciones
+  for (i in 1:10) { # Ciclo para 10 iteraciones
     ver_p <- corromper(train, p)
     mejor_arbol_p <- opt_model(ver_p, valid)
     mejor_auc_p <- test_model(mejor_arbol_p, test)
@@ -471,11 +478,11 @@ for (p in porcent) {
   resultados_aucs[[as.character(p)]] <- aucs_iteracion
 }
 
-# Calcular medias y desviaciones estándar
+# Calcula medias y desviaciones estándar
 medias_aucs <- sapply(resultados_aucs, mean)
 desv_std_aucs <- sapply(resultados_aucs, sd)
 
-# Añadir los resultados del 0% de corrupción
+# Añadimos los resultados del 0% de corrupción
 total <- c(0, porcent)
 medias_aucs_total <- c(mejor_auc, medias_aucs)
 desv_std_aucs_total <- c(0, desv_std_aucs) # Desviación estándar es 0 para el caso sin corrupción
@@ -483,7 +490,6 @@ desv_std_aucs_total <- c(0, desv_std_aucs) # Desviación estándar es 0 para el 
 ```
 
 ```{r, echo=FALSE}
-# Crear un dataframe para el gráfico con ggplot2
 df_plot <- data.frame(
   porcentaje_corrupta = total,
   media_auc = medias_aucs_total,
@@ -493,7 +499,7 @@ df_plot
 ```
 ```{r, echo=FALSE}
 library(ggplot2)
-# Graficar los resultados
+# Graficamos los resultados
 ggplot(df_plot, aes(x = porcentaje_corrupta, y = media_auc)) +
   geom_line(color = "blue", linewidth = 1.2) +
   geom_point(color = "blue", size = 3) +
