@@ -1,6 +1,7 @@
 ---
 title: "TP TD6"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
